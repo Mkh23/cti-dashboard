@@ -1,4 +1,3 @@
-// web/lib/roles.ts
 import type { Role } from "@/lib/api";
 
 export function roleToPath(role: Role): string {

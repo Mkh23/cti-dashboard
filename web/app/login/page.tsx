@@ -22,21 +22,29 @@ export default function LoginPage() {
       console.log("[login] token received", access_token?.slice(0, 10) + "…");
       localStorage.setItem("token", access_token);
 
+      // store token for client-side code
+      localStorage.setItem("token", access_token);
+
+      // also set a cookie so middleware can see auth during navigation
+      document.cookie = `token=${access_token}; Path=/; SameSite=Lax`;
+
+
       const profile = await me(access_token);
+      console.log("[login] /me", profile);
+
       const dest = roleToPath(profile.role);
       console.log("[login] redirecting to", dest);
 
-      // Prefer replace to avoid keeping /login in history
+      // Prefer replace() so /login isn't kept in history
       router.replace(dest);
 
-      // Hard fallback in case client router doesn't navigate
+      // HARD FALLBACK in case client router stalls
       setTimeout(() => {
         if (window.location.pathname.startsWith("/login")) {
-          console.warn("[login] router stalled; forcing hard navigation to", dest);
+          console.warn("[login] router stalled; forcing hard nav to", dest);
           window.location.assign(dest);
         }
       }, 150);
-      return;
     } catch (err: any) {
       console.error("[login] error", err);
       let msg = err?.message || "Login failed";
