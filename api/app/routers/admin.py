@@ -33,11 +33,17 @@ def list_users(current: User = Depends(get_current_user), db: Session = Depends(
     users = db.query(User).all()
     out: List[UserWithRoles] = []
     for u in users:
+        
         role_names = [
-            r.name for (r,) in db.query(Role)
-            .join(UserRole, Role.id == UserRole.role_id)
-            .filter(UserRole.user_id == u.id).all()
+            r.name
+            for r in (
+                db.query(Role)
+                .join(UserRole, Role.id == UserRole.role_id)
+                .filter(UserRole.user_id == u.id)
+                .all()
+            )
         ]
+
         out.append(UserWithRoles(id=u.id, email=u.email, roles=role_names))
     return out
 

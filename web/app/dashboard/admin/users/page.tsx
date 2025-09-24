@@ -1,3 +1,4 @@
+// web/app/dashboard/admin/users/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -26,11 +27,15 @@ export default function AdminUsersPage() {
     const nextRoles = u.roles.includes(role)
       ? u.roles.filter(r => r !== role)
       : [...u.roles, role];
+
     try {
       setSaving(u.id);
       const res = await fetch(`${API}/admin/users/${u.id}/roles`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ roles: nextRoles })
       });
       if (!res.ok) throw new Error("Save failed");

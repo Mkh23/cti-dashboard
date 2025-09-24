@@ -1,9 +1,10 @@
+// web/app/login/page.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, me } from "@/lib/api";
-import { roleToPath } from "@/lib/roles";
+import { roleToPath, pickRole } from "@/lib/roles";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("admin@example.com");
@@ -16,37 +17,28 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
     try {
-      console.log("[login] submitting");
       const { access_token } = await login(email, password);
-      console.log("[login] token received", access_token?.slice(0, 10) + "…");
-      localStorage.setItem("token", access_token);
 
-      // store token for client-side code
+      // store token for client-side code + middleware
       localStorage.setItem("token", access_token);
-
-      // also set a cookie so middleware can see auth during navigation
       document.cookie = `token=${access_token}; Path=/; SameSite=Lax`;
 
-
-      const profile = await me(access_token);
-      console.log("[login] /me", profile);
-
-      const dest = roleToPath(profile.role);
-      console.log("[login] redirecting to", dest);
+      const profile = await me(access_token); // { id, email, roles: string[] }
+      const chosen = pickRole(profile.roles);
+      const dest = roleToPath(chosen);
 
       // Prefer replace() so /login isn't kept in history
       router.replace(dest);
 
-      // HARD FALLBACK in case client router stalls
+      // Hard fallback in case client router stalls
       setTimeout(() => {
         if (window.location.pathname.startsWith("/login")) {
-          console.warn("[login] router stalled; forcing hard nav to", dest);
           window.location.assign(dest);
         }
       }, 150);
     } catch (err: any) {
-      console.error("[login] error", err);
       let msg = err?.message || "Login failed";
       try {
         const parsed = JSON.parse(msg);
@@ -89,7 +81,8 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="mt-4 text-sm text-gray-400">
-          Tip: Register the first user in Swagger at <code>/auth/register</code> to become admin.
+          Tip: Register the first user in Swagger at <code>/auth/register</code>{" "}
+          to become admin.
         </p>
       </div>
     </main>
