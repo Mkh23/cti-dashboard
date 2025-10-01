@@ -19,8 +19,10 @@ def require_admin(user: User, db: Session):
     if not has_admin:
         raise HTTPException(status_code=403, detail="Admin only")
 
+from uuid import UUID
+
 class UserWithRoles(BaseModel):
-    id: int
+    id: UUID
     email: str
     roles: List[str]
 
@@ -48,7 +50,7 @@ def list_users(current: User = Depends(get_current_user), db: Session = Depends(
     return out
 
 @router.put("/users/{user_id}/roles", response_model=UserWithRoles)
-def set_roles(user_id: int, payload: UpdateRolesPayload, current: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def set_roles(user_id: UUID, payload: UpdateRolesPayload, current: User = Depends(get_current_user), db: Session = Depends(get_db)):
     require_admin(current, db)
     u = db.get(User, user_id)
     if not u:

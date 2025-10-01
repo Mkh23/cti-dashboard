@@ -11,18 +11,8 @@ from ..security import hash_password, verify_password, create_token
 
 router = APIRouter()
 
-# Ensure tables exist + seed roles on import/start
-Base.metadata.create_all(bind=engine)
-
-def seed_roles(db: Session):
-    default_roles = ["admin", "technician", "farmer"]
-    for r in default_roles:
-        if not db.query(Role).filter_by(name=r).first():
-            db.add(Role(name=r))
-    db.commit()
-
-with next(get_db()) as db:
-    seed_roles(db)
+# Note: Tables are now created via Alembic migrations
+# Run: alembic upgrade head
 
 @router.post("/register", response_model=UserOut)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
