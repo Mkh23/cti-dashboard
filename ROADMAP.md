@@ -1,184 +1,358 @@
-# CTI Dashboard — Step-by-Step Roadmap (Repo-Aware)
-
-This roadmap reflects **what’s already in your GitHub repo** and what’s left to build. Boxes **[x]** = done in repo now, **[ ]** = to do, **[~]** = stub/partial.
-
-> Source of truth I checked:
-> - Repo layout shows `api/`, `web/`, `scripts/`, `.gitignore`, `docker-compose.yml`, and a detailed README with local run steps【see repo README lines showing stack and run steps】.  
-> - README indicates: Dockerized Postgres, FastAPI that **auto-creates tables and seeds default roles**, Swagger at `http://localhost:8000/docs`, and a Next.js app with a Login/Register flow and `.env` examples【README shows DB start, API run, Web run, and notes that API will auto-create tables; login/register from web or Swagger】.  
->   (Specifically: stack + local dev sections + “API will auto-create tables… seed default roles… visit /docs” and “Open :3000, use Login page to create an admin” are present.) :contentReference[oaicite:0]{index=0}
->   Github repo: https://github.com/Mkh23/cti-dashboard
+# CTI Platform — Master Roadmap with Checklists
+**Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard  
+**Repo:** `Mkh23/cti-dashboard` • **Region:** `ca-central-1` • **Dev bucket:** `cti-dev-406214277746`  
+**Last updated:** 2025-10-01
 
 ---
 
-## Phase 0 — Repo & Environments
-**Goal:** Monorepo skeleton, envs wired, “Hello World” for API & Web.
+## 0) High-Level Objectives
+- [x] Define end-to-end data flow and security boundaries
+- [x] Lock region, bucket, and S3 prefix policy for `dev`
+- [ ] Deliver a reliable ingest path with validation, idempotency, and replay
+- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting
+- [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
-- [x] Monorepo structure present: `api/` (FastAPI), `web/` (Next.js), `scripts/`, `docker-compose.yml`, README. :contentReference[oaicite:1]{index=1}
-- [x] Local DB via **Docker Compose** (`docker compose up -d db`). :contentReference[oaicite:2]{index=2}
-- [x] API boots with `uvicorn` and **Swagger** at `http://localhost:8000/docs`. :contentReference[oaicite:3]{index=3}
-- [x] Web boots with `pnpm dev` at `http://localhost:3000`. Login/Register flow scaffolded. :contentReference[oaicite:4]{index=4}
-- [x] `.env.example` / `.env.local.example` provided in `api/` and `web/`. :contentReference[oaicite:5]{index=5}
+## 1) Environments & Infra
+### 1.1 Environments
+- [x] `dev` (default) — iterative development
+- [ ] `prod` — stable clients
+- [ ] Document environment-specific configs in `/docs/env.md`
 
-**Exit criteria:** You can start DB, run API, and open Web locally (per README). ✔️
+### 1.2 Servers & Secrets
+- [x] Linux VM target for API/Web (Dockerized)
+- [ ] Nginx/Traefik TLS termination
+- [ ] `.env.example` for local, secrets via systemd `EnvironmentFile=` in prod
+- [ ] Secrets inventory (`JWT_SECRET`, DB URL, S3, HMAC secret) and rotation policy
 
----
+### 1.3 Feature Flags
+- [ ] Add feature flag system (`api/app/core/feature_flags.py`)
+- [ ] Configure flags in environment (DB or file-based)
+- [ ] Initial flags: `enable_grading`, `enable_notifications`, `advanced_search`
+- [ ] Document flag conventions in `/docs/feature_flags.md`
 
-## Phase 1 — Database Schema & Migrations
-**Goal:** Implement the **canonical Postgres + PostGIS schema** with migrations.
-
-- [~] **Temporary `create_all()`** behavior exists (API “auto-creates tables and seeds roles”). Replace with Alembic. :contentReference[oaicite:6]{index=6}
-- [ ] Translate your **ERD.dbml** schema into SQLAlchemy models exactly (types, FKs, indexes).
-- [ ] Add **Alembic** migrations; remove `create_all()` in favor of `alembic upgrade head`.
-- [ ] Seed script for base data (roles; demo farm/device/users).
-
-**Exit criteria:** `alembic upgrade head` creates the full schema; seed loads without errors.
-
----
-
-## Phase 2 — AuthN/Z & RBAC
-**Goal:** Secure API and role-based app shell.
-
-- [~] **Auth endpoints exist** (README references `POST /auth/register` and login via Web). :contentReference[oaicite:7]{index=7}
-- [ ] Implement JWT **access/refresh** httpOnly cookies, `/auth/refresh`, `/me`.
-- [ ] Add server-side guards (RBAC) and client route guards (`/dashboard/{admin|technician|farmer}`).
-- [ ] Global 401 handler with silent refresh → logout fallback.
-
-**Exit criteria:** Login redirects to the correct role dashboard; protected routes enforced.
+**Definition of Done (Env):**
+- [ ] `make up` boots DB/API/Web locally
+- [ ] One-liner `deploy.sh` (pull images, run Alembic, restart services)
+- [ ] TLS certs installed and renewed (prod)
+- [ ] Feature flags configurable without deployment
 
 ---
 
-## Phase 3 — Admin Surfaces (Users, Farms, Devices)
-**Goal:** Minimal admin to support technician/farmer flows.
+## 2) S3 Layout & Lifecycle
+### 2.1 Prefix Policy (decided)
+- [x] Raw (Pi): `raw/{device_code}/{YYYY}/{MM}/{DD}/{capture_id}/` → `image.jpg|png`, `mask.png?`, `meta.json`
+- [x] Processed (server): `processed/{capture_id}/...` (thumbs, overlays, reports)
+- [x] Exports/Audit: `exports/{YYYY}/{MM}/...`, `audit/{YYYY}/{MM}/...`
 
-- [ ] **Users**: list/create/edit/activate + role assignment (+ audit logging).
-- [ ] **Farms**: list/detail; **GeoJSON geofence** render; centroid display.
-- [ ] **Devices**: list/register; associate to farm; show `last_seen_at`.
-- [ ] API: `GET/POST/PUT` for users/farms/devices with RBAC checks.
+### 2.2 Lifecycle (initial scaffolding)
+- [ ] `raw/` → Glacier @180d → Delete @3y
+- [ ] `processed/` → Glacier @365d → Delete @5y
+- [ ] Keep `meta.json` in Standard
 
-**Exit criteria:** Admin can create farm (with geofence), register device, create users.
+**Tasks:**
+- [ ] Add lifecycle rules to bucket (dev)
+- [ ] Terraform (optional) or doc the manual steps
+- [ ] Add "Storage Cost" note in README
 
----
-
-## Phase 4 — Ingestion Path (AWS → API)
-**Goal:** Create scans from S3 “triplets” (img/msk/meta).
-
-- [ ] `POST /ingest/webhook` with **HMAC** verification & **idempotency** on `ingest_key`.
-- [ ] Persist **assets**, **scans**, **ingestion_log**, and **scan_events`.
-- [ ] (Optional) Resolve `farm_id` by **GPS geofence** → status `located`.
-- [ ] CLI/dev endpoint to simulate webhook payload.
-
-**Exit criteria:** Sending a sample payload creates assets + a scan (`received`/`located`) visible in queue.
+**DoD (S3):**
+- [ ] Verified example: `s3://cti-dev-406214277746/raw/dev-0001/2025/09/09/cap_1757423584/image.jpg`
+- [ ] Lifecycle policies visible in console and tested with tags/simulator
 
 ---
 
-## Phase 5 — Technician Scans Queue & Detail
-**Goal:** Core technician workflow.
+## 3) Ingest & Webhook Security [PRIORITY]
+### 3.1 Eventing
+- [ ] EventBridge rule for `ObjectCreated:*` in `raw/`
+- [ ] Lambda builds payload `{bucket, prefix, keys, device_code, meta_json}`
+- [ ] Lambda adds `X-CTI-Timestamp`, `X-CTI-Signature` (HMAC), POSTs `/ingest/webhook`
+- [ ] Lambda retries (x2), SQS DLQ on fail
 
-- [ ] List: `GET /scans?status=...` with filters (status/farm/device/date).
-- [ ] Detail: image viewer (zoom/pan) + **mask overlay toggle**, meta panel, timeline from `scan_events`.
-- [ ] Actions: **Validate** (`/scans/{id}/validate`), set **quality** (`good|ok|poor`), **Link animal**, **Add note**.
-- [ ] Optimistic updates with rollback and toasts.
+### 3.2 HMAC Signing (decisions)
+- [x] Secret stored in **AWS Secrets Manager** (dev/prod), rotate quarterly
+- [ ] Lambda retrieves secret on cold start and caches
+- [ ] Server validates timestamp ±5 min & signature (constant-time compare)
 
-**Exit criteria:** Tech can validate a new scan, set quality, link an animal, and see legal status transitions.
+### 3.3 Replay & Ops
+- [ ] Create SQS DLQ `cti-dev-ingest-dlq`
+- [ ] `POST /ops/ingest-replay?max=50` (admin only) drains DLQ
+- [ ] CLI/script & Admin UI button to trigger replay
 
----
+### 3.4 End-to-End Testing
+- [ ] Local test harness to simulate S3 → Lambda → webhook flow
+- [ ] Basic test images with meta.json templates
+- [ ] S3 event notification simulator
 
-## Phase 6 — Asset Viewing (Signed URL Proxy)
-**Goal:** Safe access to S3 images & masks.
-
-- [ ] `GET /assets/{id}/view` → short-lived signed URL (S3).
-- [ ] Frontend viewer uses that URL; toggle mask overlay (canvas or CSS blend).
-- [ ] Re-fetch on URL expiry.
-
-**Exit criteria:** Authorized users see images/masks without direct S3 exposure.
-
----
-
-## Phase 7 — Farmer Surfaces (Herd, History, Notifications)
-**Goal:** Farmer read flows.
-
-- [ ] **Herd** list for farms in `user_farms`.
-- [ ] **Animal history**: scans + `grading_results`, mini trend chart.
-- [ ] **Notifications** center: list unread + mark read.
-
-**Exit criteria:** Farmer can browse animals, open history, and clear notifications.
+**DoD (Ingest):**
+- [ ] Uploading a file under `raw/.../cap_xxx/` leads to a `scans + assets` row within 5s
+- [ ] Tampered signature is rejected (403), logged
+- [ ] Failed events appear in DLQ and can be replayed successfully
+- [ ] Test harness verifies complete ingest flow
 
 ---
 
-## Phase 8 — Grading Hook & Results
-**Goal:** Store & display human/model grades.
+## 4) `meta.json` Validation (Schema v1.0.0)
+- [x] Adopt `meta_version: "1.0.0"` and validate via JSON Schema at webhook
+- [ ] Store schema at `api/app/schemas/meta_v1.json` and reference in README
+- [ ] Unit tests for required/optional fields and error messages
+- [ ] Forward-compat plan: only additive optional fields until v2
 
-- [ ] `POST /scans/{id}/grade` → write `grading_results` (+ confidence, model info).
-- [ ] Tech UI: “Trigger Grade” (stub to model later) + show result.
-- [ ] Farmer history: show grade label, confidence, timestamp, source.
+**Required keys (recap):** `meta_version, device_code, capture_id, captured_at, image_sha256, files{image_relpath}, probe, firmware`  
+**Optional:** `operator_id, farm_id, gps{lat,lon}, mask_sha256, files{mask_relpath,extra[]}, inference_summary{...}`
 
-**Exit criteria:** Grade appears in both technician detail and farmer history.
-
----
-
-## Phase 9 — AWS Lambda Integration
-**Goal:** Real cloud signal to webhook.
-
-- [ ] Lambda on `s3:ObjectCreated:*` for capture prefix → assemble payload (bucket, prefix, `img.png|msk.png|meta.json`, pre-signed URLs, `device_code`) + HMAC → `POST /ingest/webhook`.
-- [ ] Retries + idempotency; DLQ/logging.
-
-**Exit criteria:** Pi uploads → scans appear in the technician queue automatically.
+**DoD (Schema):**
+- [ ] Valid sample passes; missing `image_relpath` fails with clear message
+- [ ] Contract doc published for Pi-side devs
 
 ---
 
-## Phase 10 — QA, E2E, & Polish
-**Goal:** Stability and UX quality.
+## 5) Database (Postgres 15 + PostGIS)
+### 5.1 Conventions & Indices
+- [x] SRID = **EPSG:4326**
+- [ ] Enforce geometry types (e.g., farm geofence POLYGON)
+- [ ] High-value indices:  
+  - `scans(ingest_key) UNIQUE`, `(status, created_at DESC)`, `(device_id, captured_at DESC)`  
+  - `farms USING GIST(geofence)`; optional `scans USING GIST(gps_location)`  
+  - `assets(bucket, object_key) UNIQUE`
 
-- [ ] **API tests**: auth, RBAC, ingest webhook, scans transitions, asset view.
-- [ ] **E2E** (Playwright): admin/tech/farmer journeys.
-- [ ] Loading/empty states, a11y, error boundaries, consistent toasts.
+### 5.2 Entities (initial)
+- [ ] `users, roles, user_roles`  
+- [ ] `farms(geofence, centroid), animals, user_farms`  
+- [ ] `devices(device_code UNIQUE, label, farm_id, last_seen_at, last_upload_at, captures_count)`  
+- [ ] `assets(bucket, key, sha256, size, mime)`  
+- [ ] `scans(scan_id, capture_id, device_id, farm_id, operator_id, gps_location, captured_at, ingest_key, status)`  
+- [ ] `scan_events(scan_id, event, meta, created_at)`  
+- [ ] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
+- [ ] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
+- [ ] `notifications(user_id, type, payload, is_read, created_at)`
 
-**Exit criteria:** CI green; happy-paths reliable; key UX smooth.
+### 5.3 Migrations (Alembic)
+- [ ] Replace `create_all()` with Alembic baseline
+- [ ] Migration order: auth → farms/devices/animals → assets/scans/events/ingestion_log → grading_results/notifications → secondary indexes → seeds (dev)
 
----
-
-## Phase 11 — Deployment (Linux Server with Public IP)
-**Goal:** Production behind HTTPS.
-
-- [ ] Reverse proxy (nginx/traefik): TLS; route `/api` → uvicorn; `/` → Next.js (`pnpm build && pnpm start`). :contentReference[oaicite:8]{index=8}
-- [ ] systemd units: `cti-api.service`, `cti-web.service` (+ optional `cti-worker.service`).
-- [ ] Environment files with secrets; JWT rotation; CORS restricted to web origin.
-- [ ] Backups: DB dumps; S3 retention; log rotation.
-
-**Exit criteria:** HTTPS dashboard live; end-to-end ingest to view works.
-
----
-
-## Phase 12 — Data Export & Ops
-**Goal:** ML export & ops visibility.
-
-- [ ] Technician **dataset export** (CSV/JSON manifest with asset links, statuses, quality).
-- [ ] Admin reports (counts by farm/device/status).
-- [ ] Observability: structured logs, request IDs, minimal dashboards.
-- [ ] Documentation: update README, `/docs/ERD.dbml`, API reference, runbooks.
-
-**Exit criteria:** Repeatable exports; basic ops visibility; docs current.
+**DoD (DB):**
+- [ ] Alembic head matches ERD (`/docs/ERD.dbml`)
+- [ ] Fresh DB from migrations passes integration tests
 
 ---
 
-## Milestones & Demos
-- **M1 (after Phase 5):** Technician validates an ingested scan locally.
-- **M2 (after Phase 9):** Real Pi→S3→Lambda→API ingest populates queue.
-- **M3 (after Phase 11):** HTTPS production with Admin/Tech/Farmer journeys live.
-- **M4 (after Phase 12):** Dataset export + docs + minimal ops complete.
+## 6) API (FastAPI)
+### 6.1 Auth & RBAC
+- [ ] `/auth/login, /auth/refresh, /auth/logout, /me` with HttpOnly cookies
+- [ ] Role-based access (admin/technician/farmer), farm scoping
+
+### 6.2 Ingest & Scans [PRIORITY]
+- [ ] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key`
+- [ ] `GET /scans?filters&pagination`
+- [ ] `GET /scans/{scan_id}` with signed URLs to assets
+- [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
+
+### 6.3 Devices & Admin [EARLY FOCUS]
+- [ ] `GET/POST /devices` (registry: device_code, label, farm_id, s3_prefix_hint)
+- [ ] `GET/POST /admin/users` & `/admin/farms`
+- [ ] Admin dashboard scaffolding (before detailed technician/farmer UI)
+- [ ] User/role management, device registration, farm geofencing
+- [ ] Basic system status dashboard
+
+### 6.4 Grading & Ops
+- [ ] `POST /scans/{scan_id}/grade` → enqueue worker job
+- [ ] `GET /grading/{scan_id}` list results
+- [ ] `POST /ops/ingest-replay?max=50`
+
+**DoD (API):**
+- [ ] OpenAPI spec available; critical routes have tests
+- [ ] All responses typed (Pydantic) and stable
+- [ ] Admin tools can create/manage all required entities
 
 ---
 
-## Acceptance Criteria Summary
-- **Security:** JWT httpOnly, RBAC enforced, webhook HMAC, no direct S3 exposure.
-- **Data Integrity:** Idempotent ingest (`ingest_key`), `scan_events` + `audit_log`.
-- **Usability:** Clear status machine, mask overlay viewer, robust error toasts.
-- **Reliability:** CI green; E2E pass; logs usable; backups configured.
+## 7) Worker Jobs (Grading & Media)
+### 7.1 Model Pipeline Architecture [EXPANDED]
+- [ ] Define model registry structure:
+  models/ 
+    ├── ribeye-unetpp@1.0.0/ 
+    │ ├── model.onnx 
+    │ ├── config.json 
+    │ ├── metadata.json (sha256, training_dataset, metrics) 
+    │ └── preprocessing.py 
+    └── ribeye-unetpp@1.1.0/ 
+    └── ...
+- [ ] Model versioning convention (SemVer)
+- [ ] Artifact hashing and provenance tracking
+- [ ] A/B comparison capability
+
+### 7.2 Worker Implementation
+- [ ] Choose queue (Celery/RQ/Arq)
+- [ ] Implement grading pipeline (load model, run, compute confidence_breakdown & features_used, persist)
+- [ ] Generate thumbnails/overlays under `processed/{capture_id}/`
+- [ ] Backfill jobs (re-grade, feature extraction, exports)
+
+### 7.3 Model Deployment & Management
+- [ ] Model upload/registration process
+- [ ] Version switching and default model selection
+- [ ] Canary deployments (% traffic to new model)
+- [ ] Model performance metrics collection
+
+**DoD (Worker):**
+- [ ] A sample scan produces a `grading_results` row with metrics
+- [ ] Average grading time and error rate recorded
+- [ ] Model versions can be switched without deployment
+- [ ] Complete provenance from model to results
 
 ---
 
-### Snapshot of Current Status (from repo)
-- ✅ Monorepo + Docker DB + run scripts are in README (“Start DB,” “Run API,” “Run Web”). The README states the **API auto-creates tables and seeds roles** and shows both Swagger and Login/Register flows. These establish Phase 0 completion and partial Phase 1/2 scaffolding. :contentReference[oaicite:9]{index=9}
-- ⏳ Remaining: Alembic migrations; RBAC guards; Admin/Farm/Device UIs; Ingest webhook; Technician & Farmer surfaces; Signed URL asset proxy; Lambda integration; tests; deployment hardening.
+## 8) Dashboard (Next.js 14 + Tailwind)
+### 8.1 Pages
+- [ ] Auth: login/register/reset; `/me` hydration; role redirect
+- [ ] Admin: Users, Farms (map), Devices (registry + telemetry)
+- [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
+- [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
-> Keep this file at repo root as `ROADMAP.md` and update checkboxes as you ship features.
+### 8.2 Components
+- [ ] DataTable (server pagination, 50/page default)
+- [ ] ImageViewer (zoom/pan, mask toggle, signed URL refresh)
+- [ ] Map (GeoJSON, farm polygon), StatusPill, Toasts
+
+**DoD (Web):**
+- [ ] Technician flow: find new scan → view image+mask → validate → run grading → see result
+- [ ] Farmer sees graded results for permitted images
+
+---
+
+## 9) Observability & Ops [EXPANDED]
+### 9.1 Logging
+- [ ] Correlate logs by `capture_id` / `ingest_key` across Lambda → API → DB
+- [ ] Structured logs (JSON) with request IDs
+- [ ] Log rotation and archival
+
+### 9.2 Metrics & Monitoring
+- [ ] Prometheus metrics endpoints in API
+- [ ] Grafana dashboards for key metrics
+- [ ] Alerting on critical paths:
+- Ingest success rate
+- Queue depths
+- API response times
+- Error rates
+- Resource utilization
+
+### 9.3 Health & Operations
+- [ ] Health endpoints (`/healthz`, `/readyz`)
+- [ ] Metrics: webhook latency, success/error rates, grading duration, queue depth
+- [ ] Backups: nightly `pg_dump`, restore runbook
+
+**DoD (Obs):**
+- [ ] Grafana/Prometheus dashboards for ingest success rate & P95 latency
+- [ ] Simulated failure shows up in alerts/logs
+- [ ] SLOs defined for key metrics
+- [ ] Backup/restore proven viable
+
+---
+
+## 10) Security Checklist
+- [ ] HMAC-signed webhook + timestamp window check
+- [ ] Rate limits on `/ingest/webhook` & admin ops
+- [ ] JWT in HttpOnly cookies; SameSite=Strict; CSRF for unsafe methods
+- [ ] Strict CORS (dashboard origin only)
+- [ ] IAM least privilege (Pi → S3 put to `raw/` only)
+- [ ] S3: SSE-S3 (or KMS), TLS-only, versioning, object ownership enforced
+- [ ] DB: least-privileged role, no superuser, periodic backups
+
+---
+
+## 11) CI/CD
+- [ ] GitHub Actions: backend (ruff, mypy, tests) → build/push Docker
+- [ ] Frontend: type-check & build
+- [ ] Deploy: SSH → pull images → Alembic upgrade → restart via systemd
+- [ ] Status badges in README; protected `main`
+
+**DoD (CI/CD):**
+- [ ] Green pipeline builds & deploys on merge to `main`
+- [ ] Smoke tests pass post-deploy
+
+---
+
+## 12) Testing Strategy
+- [ ] Unit: schema validation, HMAC, repositories, grading utils
+- [ ] Integration: webhook → DB → signed URL path
+- [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys
+- [ ] Load: burst uploads to webhook
+- [ ] Security: signature tamper & replay tests
+
+---
+
+## 13) Phases & Milestones (with checklists) [REORDERED FOR PRIORITY]
+### Phase A — Foundations
+- [x] Repo scaffold & local stack
+- [ ] Alembic baseline & ERD (`/docs/ERD.dbml`)
+- [ ] Health (`/healthz`) & readiness (`/readyz`)
+**DoD:** Fresh DB via migrations; `/healthz` green
+
+### Phase B — Admin Tools & Auth
+- [ ] JWT auth, HttpOnly cookies
+- [ ] Role guards (server & client)
+- [ ] Admin screens for users, farms, devices
+**DoD:** Admin can create users, register devices, define farm boundaries
+
+### Phase C — Ingest (AWS→Server) [PRIORITY]
+- [ ] `/ingest/webhook` (HMAC, Schema, idempotent)
+- [ ] Persist scans/assets/events/ingestion_log
+- [ ] S3 policy/prefixes; EventBridge rule
+- [ ] Lambda signer; retries; DLQ
+**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors
+
+### Phase D — Dashboard MVP
+- [ ] Technician: Scans list + detail (ImageViewer + mask), actions
+- [ ] Farmer: Herd/History/Notifications
+**DoD:** Technician can validate and run grading; Farmer can view grades
+
+### Phase E — Grading Pipeline
+- [ ] Worker queue + model runner
+- [ ] Persist `grading_results` + UI display
+- [ ] Model versioning & management
+**DoD:** Confidence & breakdown visible in UI; model versions swappable
+
+### Phase F — Monitoring & Ops
+- [ ] Prometheus/Grafana setup
+- [ ] Key metric dashboards
+- [ ] Alerting rules
+- [ ] S3 lifecycle rules
+- [ ] DLQ replay endpoint + admin button
+- [ ] Backups & restore runbook
+**DoD:** One replay from DLQ to success; nightly backup artifact; alerts firing correctly
+
+### Phase G — Feature Flags & Refinement
+- [ ] Feature flag system implementation
+- [ ] Flag-gated advanced features
+**DoD:** Features can be toggled without deployment
+
+### Phase H — CI/CD
+- [ ] Actions pipeline; deploy script; prod gating
+**DoD:** Auto-deploy on `main` with green checks
+
+---
+
+## 14) Acceptance Criteria (MVP)
+- [ ] Pi upload under `raw/.../cap_{id}/` produces a visible scan quickly
+- [ ] Viewer shows image + mask; controls are smooth
+- [ ] Grading produces a row with `model@version`, confidence, and breakdown
+- [ ] Device telemetry updates (`last_upload_at`, `captures_count`)
+- [ ] DLQ replay restores at least one failed ingest
+- [ ] CI/CD builds, tests, and deploys on `main` merges
+- [ ] Admin can manage full system lifecycle
+- [ ] Prometheus/Grafana shows key metrics
+
+---
+
+## 15) Next 5 Commits (Actionable) [REORDERED]
+1. [ ] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit tests  
+2. [ ] Alembic baseline: users/roles → farms/devices/animals → scans/assets/events/ingestion_log → grading_results/notifications  
+3. [ ] Admin screens: Users, Farms (with PostGIS), Devices (registry)  
+4. [ ] EventBridge + Lambda skeleton (Secrets Manager, signed POST, retries, DLQ)  
+5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard
+
+---
+
+## 16) Open Items
+- [ ] Finalize `confidence_breakdown` metrics after model experiments
+- [ ] Farmer PDF/CSV report templates
+- [ ] Privacy/PII policy and retention tuning
+- [ ] Terraform/IaC for reproducible infra (optional next step)
