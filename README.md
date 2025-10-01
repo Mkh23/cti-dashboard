@@ -1,75 +1,123 @@
-# CTI Dashboard Starter (Pi → AWS S3 → Server)
+# CTI Dashboard — Cattle Tech Imaging Platform
 
-A production‑ready starter to build your cattle ultrasound (US) grading dashboard.
+A production-ready platform for capturing bovine ultrasound images, validating and ingesting them via AWS S3, and presenting actionable insights through a role-based dashboard.
 
-## Stack
+**Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard
+
+## 📚 Documentation
+
+- [PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md) - Project overview, architecture, and goals
+- [ROADMAP.md](ROADMAP.md) - Detailed roadmap with checklists
+- [DATA_MODEL.md](DATA_MODEL.md) - Database schema, contracts, and examples
+
+## 🛠 Stack
+
 - **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **Backend**: FastAPI (JWT auth, role-based access), SQLAlchemy
-- **DB**: PostgreSQL 15 + PostGIS (Docker)
-- **Local Dev**: Docker Compose (DB only), `uvicorn` for API, `next dev` for web
+- **Backend**: FastAPI + SQLAlchemy + Alembic + PostGIS
+- **Database**: PostgreSQL 15 + PostGIS
+- **Auth**: JWT with RBAC (admin/technician/farmer)
+- **AWS**: S3, EventBridge, Lambda, Secrets Manager
 
-> AWS side (Pi → S3 → Lambda) already exists. This repo covers **everything on your Linux server**: API, DB, Dashboard UI.
+## 🚀 Quick Start
 
----
+### Prerequisites
 
-## 0) Prereqs (Windows)
-- **Recommended**: WSL2 + Ubuntu 22.04
-- Docker Desktop (enable WSL integration)
-- Node.js 20 LTS + pnpm (`npm i -g pnpm`)
-- Python 3.11 (`py -3.11 -m venv .venv` on Windows, or `python3.11 -m venv .venv` on WSL)
-- Git + GitHub account
+- Docker & Docker Compose
+- Python 3.11+ 
+- Node.js 20 LTS + pnpm
+- Git
 
-## 1) Clone & bootstrap
-```bash
-# A) Create empty repo on GitHub first (e.g., cti-dashboard)
+### 1. Start Database
 
-# B) Locally
-git clone <your-repo-url> cti-dashboard
-cd cti-dashboard
-
-# If you downloaded this starter zip:
-# unzip it so that files land in this folder, then:
-git add .
-git commit -m "chore: import CTI dashboard starter"
-git push origin main
-```
-
-## 2) Start database (Docker)
-```bash
+\`\`\`bash
 docker compose up -d db
-```
+\`\`\`
 
-## 3) Run API (FastAPI)
-```bash
+### 2. Set Up API
+
+\`\`\`bash
 cd api
-cp .env.example .env  # adjust secrets if needed
-python -m venv .venv && source .venv/bin/activate  # (on Windows PowerShell: .venv\Scripts\Activate.ps1)
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+\`\`\`
 
-The API will auto-create tables on first run and seed default roles. Visit http://localhost:8000/docs
+API available at http://localhost:8000/docs
 
-## 4) Run Web (Next.js)
-```bash
-cd ../web
-cp .env.local.example .env.local
+### 3. Create Admin User
+
+\`\`\`bash
+curl -X POST http://localhost:8000/auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"email": "admin@example.com", "password": "StrongPass!123"}'
+\`\`\`
+
+First user automatically becomes admin.
+
+### 4. Set Up Dashboard (Optional)
+
+\`\`\`bash
+cd web
 pnpm install
+echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" > .env.local
 pnpm dev
-```
+\`\`\`
 
-Open http://localhost:3000. Use the **Login** page to create an admin first:
-- Register at `POST /auth/register` via Swagger or call from the Login page (email+password).
-- Then log in; you’ll be routed to your role dashboard.
+Dashboard at http://localhost:3000
 
-## 5) Environments
-- **Local**: as above
-- **Server (Linux)**: use the same Docker db; run API with `gunicorn`/`uvicorn` behind **Traefik**/**Nginx**; build Next.js (`pnpm build`, `pnpm start`)
+## 🔑 Key API Endpoints
 
-## 6) Next steps
-- Hook S3/Lambda → server: add an AWS webhook receiver in `api/app/routers/webhooks.py`
-- Replace `create_all()` with Alembic migrations
-- Wire your PostGIS spatial columns for farms, geofences, parcels
-- Build role-specific pages and shared components incrementally
+- \`POST /auth/register\` - Register user
+- \`POST /auth/login\` - Login
+- \`GET /me\` - Current user profile
+- \`GET/POST /admin/farms\` - Manage farms (admin)
+- \`GET/POST /admin/devices\` - Manage devices (admin)
+- \`POST /ingest/webhook\` - Receive S3 notifications (HMAC required)
+- \`GET /healthz\` - Health check
 
-Enjoy!
+## 🎯 Project Status
+
+✅ **Completed**
+- Database schema with Alembic migrations
+- User authentication and RBAC
+- Webhook ingest with HMAC validation
+- Admin APIs for users, farms, devices
+- PostGIS integration
+
+🚧 **In Progress**
+- Dashboard UI components
+- Scans management API
+
+📋 **Planned**
+- Grading worker pipeline
+- Farmer and Technician dashboards
+- Monitoring and CI/CD
+
+See [ROADMAP.md](ROADMAP.md) for details.
+
+## 🔒 Security
+
+- HMAC signatures for webhooks
+- JWT tokens for API auth
+- RBAC with three roles
+- CORS protection
+- Store secrets in environment variables
+
+## 📦 Environment Variables
+
+\`\`\`bash
+# API
+DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
+JWT_SECRET=your_secret_here
+HMAC_SECRET=your_secret_here
+CORS_ORIGINS=http://localhost:3000
+
+# Web
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+\`\`\`
+
+## 📄 License
+
+[Specify your license]
