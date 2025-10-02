@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, me, webhooks
+from .routers import auth, me, webhooks, scans
 from .routers import admin as admin_router
 from .db import engine
 from sqlalchemy import text
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(me.router, prefix="/me", tags=["me"])
 app.include_router(admin_router.router, prefix="/admin", tags=["admin"])
+app.include_router(scans.router, prefix="/scans", tags=["scans"])
 app.include_router(webhooks.router, prefix="/ingest", tags=["ingest"])
 
 @app.get("/healthz")
