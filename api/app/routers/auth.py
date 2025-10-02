@@ -18,14 +18,26 @@ router = APIRouter()
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter_by(email=payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check that roles are seeded in database
+    admin_role = db.query(Role).filter_by(name="admin").first()
+    technician_role = db.query(Role).filter_by(name="technician").first()
+    
+    if not admin_role or not technician_role:
+        raise HTTPException(
+            status_code=500, 
+            detail="Database not properly initialized. Please run migrations: alembic upgrade head"
+        )
+    
     user = User(email=payload.email, hashed_password=hash_password(payload.password))
     db.add(user)
     db.commit()
     db.refresh(user)
+    
     # by default, first user becomes admin if no admins exist
-    admin_role = db.query(Role).filter_by(name="admin").first()
     any_admin = db.query(UserRole).join(Role).filter(Role.name=="admin").first()
-    role_to_assign = admin_role if not any_admin else db.query(Role).filter_by(name="technician").first()
+    role_to_assign = admin_role if not any_admin else technician_role
+    
     db.add(UserRole(user_id=user.id, role_id=role_to_assign.id))
     db.commit()
     return user

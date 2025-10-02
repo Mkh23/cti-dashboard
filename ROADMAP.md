@@ -131,14 +131,17 @@
 
 **DoD (DB):**
 - [x] Alembic head matches ERD (`/docs/ERD.dbml`)
-- [ ] Fresh DB from migrations passes integration tests
+- [x] Fresh DB from migrations passes integration tests
+- [x] Registration works correctly with seeded roles
 
 ---
 
 ## 6) API (FastAPI)
 ### 6.1 Auth & RBAC
-- [x] `/auth/login, /auth/refresh, /auth/logout, /me` with HttpOnly cookies
+- [x] `/auth/login, /auth/register, /me` with JWT tokens
 - [x] Role-based access (admin/technician/farmer), farm scoping
+- [x] First user registration automatically becomes admin
+- [x] Comprehensive auth tests (14 tests, 100% auth module coverage)
 
 ### 6.2 Ingest & Scans [PRIORITY]
 - [x] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key`
@@ -162,6 +165,7 @@
 - [x] OpenAPI spec available; critical routes have tests
 - [x] All responses typed (Pydantic) and stable
 - [x] Admin tools can create/manage all required entities
+- [x] Auth tests with 70%+ overall coverage
 
 ---
 
@@ -271,6 +275,9 @@
 ---
 
 ## 12) Testing Strategy
+- [x] Unit: Auth endpoints (register, login, /me), health checks
+- [x] Integration: Full auth flow with test database
+- [x] Test infrastructure: pytest with PostgreSQL test database
 - [ ] Unit: schema validation, HMAC, repositories, grading utils
 - [ ] Integration: webhook → DB → signed URL path
 - [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys

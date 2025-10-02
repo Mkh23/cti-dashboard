@@ -14,3 +14,9 @@ __pycache__/
 *.sqlite3
 # docker
 data/
+# testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
