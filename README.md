@@ -40,11 +40,17 @@ cd api
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+
+# Run migrations to create all tables
 alembic upgrade head
+
+# Start the API server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 \`\`\`
 
 API available at http://localhost:8000/docs
+
+**⚠️ Important:** Always run `alembic upgrade head` before starting the API server to ensure the database schema is up to date.
 
 ### 3. Create Admin User
 
