@@ -202,8 +202,8 @@
 
 ## 8) Dashboard (Next.js 14 + Tailwind)
 ### 8.1 Pages
-- [ ] Auth: login/register/reset; `/me` hydration; role redirect
-- [ ] Admin: Users, Farms (map), Devices (registry + telemetry)
+- [x] Auth: login/register/reset; `/me` hydration; role redirect
+- [x] Admin: Users, Farms (map pending), Devices (registry + telemetry)
 - [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
@@ -289,8 +289,8 @@
 ### Phase B — Admin Tools & Auth
 - [x] JWT auth, HttpOnly cookies
 - [x] Role guards (server & client)
-- [x] Admin screens for users, farms, devices (backend APIs complete)
-**DoD:** Admin can create users, register devices, define farm boundaries ✅ (backend complete, frontend pending)
+- [x] Admin screens for users, farms, devices (backend + frontend complete)
+**DoD:** Admin can create users, register devices, define farm boundaries ✅ Complete (farm boundaries/map pending)
 
 ### Phase C — Ingest (AWS→Server) [PRIORITY]
 - [x] `/ingest/webhook` (HMAC, Schema, idempotent)
