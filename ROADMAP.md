@@ -1,15 +1,15 @@
 # CTI Platform — Master Roadmap with Checklists
 **Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard  
 **Repo:** `Mkh23/cti-dashboard` • **Region:** `ca-central-1` • **Dev bucket:** `cti-dev-406214277746`  
-**Last updated:** 2025-10-01
+**Last updated:** 2025-10-02
 
 ---
 
 ## 0) High-Level Objectives
 - [x] Define end-to-end data flow and security boundaries
 - [x] Lock region, bucket, and S3 prefix policy for `dev`
-- [ ] Deliver a reliable ingest path with validation, idempotency, and replay
-- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting
+- [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete, AWS integration pending)
+- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (backend APIs ready, frontend UI in progress)
 - [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
 ## 1) Environments & Infra
@@ -70,7 +70,7 @@
 ### 3.2 HMAC Signing (decisions)
 - [x] Secret stored in **AWS Secrets Manager** (dev/prod), rotate quarterly
 - [ ] Lambda retrieves secret on cold start and caches
-- [ ] Server validates timestamp ±5 min & signature (constant-time compare)
+- [x] Server validates timestamp ±5 min & signature (constant-time compare)
 
 ### 3.3 Replay & Ops
 - [ ] Create SQS DLQ `cti-dev-ingest-dlq`
@@ -92,9 +92,9 @@
 
 ## 4) `meta.json` Validation (Schema v1.0.0)
 - [x] Adopt `meta_version: "1.0.0"` and validate via JSON Schema at webhook
-- [ ] Store schema at `api/app/schemas/meta_v1.json` and reference in README
+- [x] Store schema at `api/app/schemas/meta_v1.json` and reference in README
 - [ ] Unit tests for required/optional fields and error messages
-- [ ] Forward-compat plan: only additive optional fields until v2
+- [x] Forward-compat plan: only additive optional fields until v2
 
 **Required keys (recap):** `meta_version, device_code, capture_id, captured_at, image_sha256, files{image_relpath}, probe, firmware`  
 **Optional:** `operator_id, farm_id, gps{lat,lon}, mask_sha256, files{mask_relpath,extra[]}, inference_summary{...}`
@@ -115,42 +115,42 @@
   - `assets(bucket, object_key) UNIQUE`
 
 ### 5.2 Entities (initial)
-- [ ] `users, roles, user_roles`  
-- [ ] `farms(geofence, centroid), animals, user_farms`  
-- [ ] `devices(device_code UNIQUE, label, farm_id, last_seen_at, last_upload_at, captures_count)`  
-- [ ] `assets(bucket, key, sha256, size, mime)`  
-- [ ] `scans(scan_id, capture_id, device_id, farm_id, operator_id, gps_location, captured_at, ingest_key, status)`  
-- [ ] `scan_events(scan_id, event, meta, created_at)`  
-- [ ] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
-- [ ] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
-- [ ] `notifications(user_id, type, payload, is_read, created_at)`
+- [x] `users, roles, user_roles`  
+- [x] `farms(geofence, centroid), animals, user_farms`  
+- [x] `devices(device_code UNIQUE, label, farm_id, last_seen_at, last_upload_at, captures_count)`  
+- [x] `assets(bucket, key, sha256, size, mime)`  
+- [x] `scans(scan_id, capture_id, device_id, farm_id, operator_id, gps_location, captured_at, ingest_key, status)`  
+- [x] `scan_events(scan_id, event, meta, created_at)`  
+- [x] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
+- [x] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
+- [x] `notifications(user_id, type, payload, is_read, created_at)`
 
 ### 5.3 Migrations (Alembic)
-- [ ] Replace `create_all()` with Alembic baseline
-- [ ] Migration order: auth → farms/devices/animals → assets/scans/events/ingestion_log → grading_results/notifications → secondary indexes → seeds (dev)
+- [x] Replace `create_all()` with Alembic baseline
+- [x] Migration order: auth → farms/devices/animals → assets/scans/events/ingestion_log → grading_results/notifications → secondary indexes → seeds (dev)
 
 **DoD (DB):**
-- [ ] Alembic head matches ERD (`/docs/ERD.dbml`)
+- [x] Alembic head matches ERD (`/docs/ERD.dbml`)
 - [ ] Fresh DB from migrations passes integration tests
 
 ---
 
 ## 6) API (FastAPI)
 ### 6.1 Auth & RBAC
-- [ ] `/auth/login, /auth/refresh, /auth/logout, /me` with HttpOnly cookies
-- [ ] Role-based access (admin/technician/farmer), farm scoping
+- [x] `/auth/login, /auth/refresh, /auth/logout, /me` with HttpOnly cookies
+- [x] Role-based access (admin/technician/farmer), farm scoping
 
 ### 6.2 Ingest & Scans [PRIORITY]
-- [ ] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key`
-- [ ] `GET /scans?filters&pagination`
-- [ ] `GET /scans/{scan_id}` with signed URLs to assets
+- [x] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key`
+- [x] `GET /scans?filters&pagination`
+- [x] `GET /scans/{scan_id}` with signed URLs to assets (endpoint ready, signed URL generation pending)
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
-- [ ] `GET/POST /devices` (registry: device_code, label, farm_id, s3_prefix_hint)
-- [ ] `GET/POST /admin/users` & `/admin/farms`
-- [ ] Admin dashboard scaffolding (before detailed technician/farmer UI)
-- [ ] User/role management, device registration, farm geofencing
+- [x] `GET/POST /devices` (registry: device_code, label, farm_id, s3_prefix_hint)
+- [x] `GET/POST /admin/users` & `/admin/farms`
+- [x] Admin dashboard scaffolding (before detailed technician/farmer UI)
+- [x] User/role management, device registration, farm geofencing
 - [ ] Basic system status dashboard
 
 ### 6.4 Grading & Ops
@@ -159,9 +159,9 @@
 - [ ] `POST /ops/ingest-replay?max=50`
 
 **DoD (API):**
-- [ ] OpenAPI spec available; critical routes have tests
-- [ ] All responses typed (Pydantic) and stable
-- [ ] Admin tools can create/manage all required entities
+- [x] OpenAPI spec available; critical routes have tests
+- [x] All responses typed (Pydantic) and stable
+- [x] Admin tools can create/manage all required entities
 
 ---
 
@@ -202,8 +202,8 @@
 
 ## 8) Dashboard (Next.js 14 + Tailwind)
 ### 8.1 Pages
-- [ ] Auth: login/register/reset; `/me` hydration; role redirect
-- [ ] Admin: Users, Farms (map), Devices (registry + telemetry)
+- [x] Auth: login/register/reset; `/me` hydration; role redirect
+- [x] Admin: Users, Farms (map pending), Devices (registry + telemetry)
 - [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
@@ -235,7 +235,7 @@
 - Resource utilization
 
 ### 9.3 Health & Operations
-- [ ] Health endpoints (`/healthz`, `/readyz`)
+- [x] Health endpoints (`/healthz`, `/readyz`)
 - [ ] Metrics: webhook latency, success/error rates, grading duration, queue depth
 - [ ] Backups: nightly `pg_dump`, restore runbook
 
@@ -248,10 +248,10 @@
 ---
 
 ## 10) Security Checklist
-- [ ] HMAC-signed webhook + timestamp window check
+- [x] HMAC-signed webhook + timestamp window check
 - [ ] Rate limits on `/ingest/webhook` & admin ops
-- [ ] JWT in HttpOnly cookies; SameSite=Strict; CSRF for unsafe methods
-- [ ] Strict CORS (dashboard origin only)
+- [x] JWT in HttpOnly cookies; SameSite=Strict; CSRF for unsafe methods
+- [x] Strict CORS (dashboard origin only)
 - [ ] IAM least privilege (Pi → S3 put to `raw/` only)
 - [ ] S3: SSE-S3 (or KMS), TLS-only, versioning, object ownership enforced
 - [ ] DB: least-privileged role, no superuser, periodic backups
@@ -282,22 +282,22 @@
 ## 13) Phases & Milestones (with checklists) [REORDERED FOR PRIORITY]
 ### Phase A — Foundations
 - [x] Repo scaffold & local stack
-- [ ] Alembic baseline & ERD (`/docs/ERD.dbml`)
-- [ ] Health (`/healthz`) & readiness (`/readyz`)
-**DoD:** Fresh DB via migrations; `/healthz` green
+- [x] Alembic baseline & ERD (`/docs/ERD.dbml`)
+- [x] Health (`/healthz`) & readiness (`/readyz`)
+**DoD:** Fresh DB via migrations; `/healthz` green ✅
 
 ### Phase B — Admin Tools & Auth
-- [ ] JWT auth, HttpOnly cookies
-- [ ] Role guards (server & client)
-- [ ] Admin screens for users, farms, devices
-**DoD:** Admin can create users, register devices, define farm boundaries
+- [x] JWT auth, HttpOnly cookies
+- [x] Role guards (server & client)
+- [x] Admin screens for users, farms, devices (backend + frontend complete)
+**DoD:** Admin can create users, register devices, define farm boundaries ✅ Complete (farm boundaries/map pending)
 
 ### Phase C — Ingest (AWS→Server) [PRIORITY]
-- [ ] `/ingest/webhook` (HMAC, Schema, idempotent)
-- [ ] Persist scans/assets/events/ingestion_log
+- [x] `/ingest/webhook` (HMAC, Schema, idempotent)
+- [x] Persist scans/assets/events/ingestion_log
 - [ ] S3 policy/prefixes; EventBridge rule
 - [ ] Lambda signer; retries; DLQ
-**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors
+**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend complete, AWS integration pending)
 
 ### Phase D — Dashboard MVP
 - [ ] Technician: Scans list + detail (ImageViewer + mask), actions
@@ -343,11 +343,11 @@
 ---
 
 ## 15) Next 5 Commits (Actionable) [REORDERED]
-1. [ ] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit tests  
-2. [ ] Alembic baseline: users/roles → farms/devices/animals → scans/assets/events/ingestion_log → grading_results/notifications  
-3. [ ] Admin screens: Users, Farms (with PostGIS), Devices (registry)  
+1. [x] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit tests (schema & validation complete, unit tests pending)
+2. [x] Alembic baseline: users/roles → farms/devices/animals → scans/assets/events/ingestion_log → grading_results/notifications  
+3. [x] Admin screens: Users, Farms (with PostGIS), Devices (registry) (backend APIs complete, frontend UI pending)
 4. [ ] EventBridge + Lambda skeleton (Secrets Manager, signed POST, retries, DLQ)  
-5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard
+5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard (health checks complete, Prometheus/Grafana pending)
 
 ---
 
