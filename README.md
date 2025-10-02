@@ -10,6 +10,80 @@ A production-ready platform for capturing bovine ultrasound images, validating a
 - [ROADMAP.md](ROADMAP.md) - Detailed roadmap with checklists
 - [DATA_MODEL.md](DATA_MODEL.md) - Database schema, contracts, and examples
 
+## Repo Structure
+cti-dashboard/
+├─ api/ # FastAPI app + Alembic
+│ ├─ app/ # application code
+│ ├─ alembic/ # migrations
+│ ├─ requirements.txt
+│ └─ .env # DATABASE_URL, JWT_SECRET, etc.
+├─ web/ # Next.js 14 (TypeScript + Tailwind)
+│ └─ .env.local # NEXT_PUBLIC_API_BASE=http://localhost:8000
+├─ scripts/
+│ └─ dev.sh # one-command dev launcher (migrations included)
+├─ docker-compose.yml # Postgres+PostGIS
+├─ DATA_MODEL.md
+├─ PROJECT_DESCRIPTION.md
+├─ ROADMAP.md
+└─ README.md
+
+## Prereqs
+- Docker & Docker Compose
+- Python 3.11+
+- Node 20 LTS + `pnpm`
+- WSL2 (if on Windows)
+
+## Quick Start (Dev)
+
+### 1) One command
+```bash
+./scripts/dev.sh
+```
+** This will: **
+Start Postgres container, wait until ready
+Ensure DB exists and PostGIS is enabled
+Activate API venv (create if missing) and install deps (if needed)
+Export api/.env and run alembic upgrade head
+Launch Uvicorn (API) and Next.js dev server (Web)
+
+### 2) URLs
+
+API docs: http://localhost:8000/docs
+
+Web app: http://localhost:3000
+
+### 3) Create first admin
+```bash
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"StrongPass!123"}'
+```
+The first user becomes admin automatically.
+
+## Environment Variables
+api/.env
+```
+# If absent, dev.sh injects a sensible default for dev
+DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
+JWT_SECRET=change_me
+HMAC_SECRET=change_me
+CORS_ORIGINS=http://localhost:3000
+```
+
+web/.env.local
+```
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+```
+
+## Key Endpoints
+POST /auth/register — Register user (first user = admin)
+POST /auth/login — JWT auth
+GET /me — Current user
+GET/POST /admin/farms
+GET/POST /admin/devices
+POST /ingest/webhook — S3 notifications (HMAC-signed)
+GET /healthz — Health check
+
 ## 🛠 Stack
 
 - **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
