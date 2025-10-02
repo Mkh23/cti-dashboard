@@ -1,12 +1,14 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, me
+from .routers import auth, me, webhooks
 from .routers import admin as admin_router
+from .db import engine
+from sqlalchemy import text
 
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
-app = FastAPI(title="CTI Dashboard API")
+app = FastAPI(title="CTI Dashboard API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +21,19 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(me.router, prefix="/me", tags=["me"])
 app.include_router(admin_router.router, prefix="/admin", tags=["admin"])
+app.include_router(webhooks.router, prefix="/ingest", tags=["ingest"])
 
 @app.get("/healthz")
 def healthz():
-    return {"ok": True}
+    """Health check endpoint."""
+    return {"ok": True, "service": "cti-api"}
+
+@app.get("/readyz")
+def readyz():
+    """Readiness check - verify database connectivity."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"ok": True, "db": "connected"}
+    except Exception as e:
+        return {"ok": False, "db": "disconnected", "error": str(e)}
