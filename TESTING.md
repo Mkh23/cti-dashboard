@@ -177,6 +177,33 @@ Ensure PostGIS extension is enabled:
 docker exec cti-dashboard-db-1 psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
 ```
 
+### "column users.updated_at does not exist" error
+
+This error occurs when the database was created using an older method (before Alembic migrations). The solution is to either:
+
+**Option 1:** Drop and recreate databases:
+```bash
+cd /home/runner/work/cti-dashboard/cti-dashboard
+docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti;"
+docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti_test;"
+docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti_test_no_roles;"
+docker compose exec db psql -U postgres -c "CREATE DATABASE cti;"
+docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test;"
+docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test_no_roles;"
+docker compose exec db psql -U postgres -d cti -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+docker compose exec db psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+docker compose exec db psql -U postgres -d cti_test_no_roles -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+cd api
+alembic upgrade head
+```
+
+**Option 2:** Add the missing column manually (if you have data to preserve):
+```bash
+docker compose exec db psql -U postgres -d cti -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();"
+docker compose exec db psql -U postgres -d cti_test -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();"
+```
+
 ### Coverage too low
 
 Add more tests for uncovered modules. Focus on:
