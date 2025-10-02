@@ -67,24 +67,36 @@ pnpm dev
 
 Dashboard at http://localhost:3000
 
+## 🧪 Running Tests
+
+\`\`\`bash
+cd api
+source .venv/bin/activate
+pytest
+\`\`\`
+
+Tests use a separate PostgreSQL database (\`cti_test\`) and achieve 70%+ coverage.
+
 ## 🔑 Key API Endpoints
 
-- \`POST /auth/register\` - Register user
-- \`POST /auth/login\` - Login
-- \`GET /me\` - Current user profile
+- \`POST /auth/register\` - Register user (first user becomes admin)
+- \`POST /auth/login\` - Login (returns JWT token)
+- \`GET /me\` - Current user profile with roles
 - \`GET/POST /admin/farms\` - Manage farms (admin)
 - \`GET/POST /admin/devices\` - Manage devices (admin)
 - \`POST /ingest/webhook\` - Receive S3 notifications (HMAC required)
 - \`GET /healthz\` - Health check
+- \`GET /readyz\` - Database connectivity check
 
 ## 🎯 Project Status
 
 ✅ **Completed**
 - Database schema with Alembic migrations
-- User authentication and RBAC
+- User authentication and RBAC (with comprehensive tests)
 - Webhook ingest with HMAC validation
 - Admin APIs for users, farms, devices
 - PostGIS integration
+- Test suite with 70%+ coverage
 
 🚧 **In Progress**
 - Dashboard UI components
