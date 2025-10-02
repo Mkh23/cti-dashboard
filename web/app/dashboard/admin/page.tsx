@@ -57,6 +57,16 @@ export default function AdminDash() {
                   Manage Users & Roles →
                 </a>
             </li>
+            <li>
+              • <a className="underline" href="/dashboard/admin/farms">
+                  Manage Farms →
+                </a>
+            </li>
+            <li>
+              • <a className="underline" href="/dashboard/admin/devices">
+                  Device Registry →
+                </a>
+            </li>
           </ul>
         </div>
       </div>

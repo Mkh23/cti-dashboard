@@ -142,8 +142,8 @@
 
 ### 6.2 Ingest & Scans [PRIORITY]
 - [x] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key`
-- [ ] `GET /scans?filters&pagination`
-- [ ] `GET /scans/{scan_id}` with signed URLs to assets
+- [x] `GET /scans?filters&pagination`
+- [x] `GET /scans/{scan_id}` with signed URLs to assets (endpoint ready, signed URL generation pending)
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
