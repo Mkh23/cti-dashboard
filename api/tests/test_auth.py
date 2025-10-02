@@ -188,4 +188,8 @@ def test_password_is_hashed(client, test_db):
     assert user is not None
     assert user.hashed_password != password
     assert user.hashed_password.startswith("$2b$")  # bcrypt hash format
+    
+    # Verify timestamps exist (fix for issue #12f9694d)
+    assert user.created_at is not None
+    assert user.updated_at is not None
     db.close()

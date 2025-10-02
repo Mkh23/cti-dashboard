@@ -146,6 +146,39 @@ This error occurs when roles aren't seeded in the database. Run migrations:
 alembic upgrade head
 ```
 
+### "column users.updated_at does not exist" error
+
+This error occurs when the database was created using an older method (before Alembic migrations were properly set up) and is missing the `updated_at` column in the users table.
+
+**Solution 1: Fresh Database (Recommended)**
+
+Drop and recreate the database, then run migrations:
+
+```bash
+# Drop existing database
+docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti;"
+docker compose exec db psql -U postgres -c "CREATE DATABASE cti;"
+
+# Run migrations
+cd api
+alembic upgrade head
+```
+
+**Solution 2: Add Missing Column (If you have important data)**
+
+If you have existing data you want to keep, add the missing column manually:
+
+```bash
+docker compose exec db psql -U postgres -d cti -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();"
+```
+
+Then run migrations to ensure everything is up to date:
+
+```bash
+cd api
+alembic upgrade head
+```
+
 ### PostGIS extension not found
 
 Install PostGIS in your PostgreSQL database:

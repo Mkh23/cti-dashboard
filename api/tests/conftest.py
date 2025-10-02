@@ -24,15 +24,17 @@ def test_db():
     # Create tables
     Base.metadata.create_all(bind=engine)
     
-    # Seed roles
+    # Seed roles (if not already present)
     session = TestingSessionLocal()
     try:
-        session.add_all([
-            Role(id=1, name="admin"),
-            Role(id=2, name="technician"),
-            Role(id=3, name="farmer"),
-        ])
-        session.commit()
+        existing_roles = session.query(Role).count()
+        if existing_roles == 0:
+            session.add_all([
+                Role(id=1, name="admin"),
+                Role(id=2, name="technician"),
+                Role(id=3, name="farmer"),
+            ])
+            session.commit()
     finally:
         session.close()
     

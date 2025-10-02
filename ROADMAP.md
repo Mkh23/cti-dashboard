@@ -133,6 +133,8 @@
 - [x] Alembic head matches ERD (`/docs/ERD.dbml`)
 - [x] Fresh DB from migrations passes integration tests
 - [x] Registration works correctly with seeded roles
+- [x] User model includes `updated_at` column and works correctly
+- [x] Documentation updated with troubleshooting for missing columns
 
 ---
 
