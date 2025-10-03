@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CTI Dashboard project includes a comprehensive test suite for the API backend with 70%+ code coverage.
+The CTI Dashboard project includes a comprehensive test suite for the API backend with 78%+ code coverage (exceeds 70% target, approaching 80%).
 
 ## Running Tests
 
@@ -79,6 +79,30 @@ pytest --cov-report=html
 - ✅ `test_register_validates_email_format` - Verifies email validation
 - ✅ `test_password_is_hashed` - Verifies passwords are hashed, not stored in plain text
 
+### Admin Endpoint Tests (`tests/test_admin.py`)
+
+16 tests covering:
+- ✅ `test_list_users_as_admin` - Admin can list all users
+- ✅ `test_list_users_as_technician_forbidden` - Non-admin cannot list users
+- ✅ `test_update_user_roles_as_admin` - Admin can update user roles
+- ✅ `test_update_user_roles_invalid_role` - Cannot assign non-existent roles
+- ✅ `test_create_farm_as_admin` - Admin can create farms
+- ✅ `test_list_farms_as_admin` - Admin can list farms
+- ✅ `test_create_device_as_admin` - Admin can register devices
+- ✅ `test_list_devices_as_admin` - Admin can list devices
+- ✅ `test_create_device_duplicate_code` - Duplicate device codes rejected
+- ✅ And 7 more permission and validation tests
+
+### Webhook Ingestion Tests (`tests/test_webhooks.py`)
+
+6 tests covering:
+- ✅ `test_webhook_valid_payload` - Valid signed webhook accepted
+- ✅ `test_webhook_invalid_signature` - Invalid signature rejected
+- ✅ `test_webhook_missing_signature` - Missing HMAC headers rejected
+- ✅ `test_webhook_expired_timestamp` - Old timestamps rejected (5-min window)
+- ✅ `test_webhook_invalid_meta_schema` - Invalid meta.json schema rejected
+- ✅ `test_webhook_idempotency` - Duplicate webhooks handled correctly
+
 ### Health Check Tests (`tests/test_health.py`)
 
 - ✅ `test_health_endpoint` - Verifies /healthz returns ok status
@@ -88,13 +112,14 @@ pytest --cov-report=html
 
 | Module | Coverage | Notes |
 |--------|----------|-------|
-| `app/routers/auth.py` | 100% | Full coverage of authentication logic |
-| `app/routers/me.py` | 96% | Nearly complete coverage |
-| `app/models.py` | 100% | All models covered |
-| `app/schemas.py` | 100% | All schemas covered |
-| `app/security.py` | 100% | Password hashing and JWT covered |
-| `app/main.py` | 92% | Main app setup covered |
-| **Overall** | **70.92%** | Exceeds 70% target |
+| `app/routers/auth.py` | 100% | Full coverage of authentication logic ✅ |
+| `app/routers/admin.py` | 83% | Admin endpoints (users, farms, devices) ✅ |
+| `app/routers/me.py` | 96% | Nearly complete coverage ✅ |
+| `app/models.py` | 100% | All models covered ✅ |
+| `app/schemas.py` | 100% | All schemas covered ✅ |
+| `app/security.py` | 100% | Password hashing and JWT covered ✅ |
+| `app/main.py` | 92% | Main app setup covered ✅ |
+| **Overall** | **78.15%** | Exceeds 70% target, approaching 80% ✅ |
 
 ## Test Database Strategy
 
@@ -213,11 +238,12 @@ Add more tests for uncovered modules. Focus on:
 
 ## Future Test Additions
 
-- [ ] Admin endpoint tests
-- [ ] Scan management tests
-- [ ] Webhook ingestion tests
-- [ ] HMAC signature validation tests
+- [x] Admin endpoint tests ✅
+- [x] Webhook ingestion tests ✅
+- [x] HMAC signature validation tests ✅
+- [ ] Complete scan management tests
 - [ ] File upload tests
 - [ ] PostGIS geometry tests
+- [ ] E2E tests with Playwright
 - [ ] Performance tests
 - [ ] Load tests

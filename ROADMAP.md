@@ -280,11 +280,14 @@
 - [x] Unit: Auth endpoints (register, login, /me), health checks
 - [x] Integration: Full auth flow with test database
 - [x] Test infrastructure: pytest with PostgreSQL test database
-- [ ] Unit: schema validation, HMAC, repositories, grading utils
-- [ ] Integration: webhook → DB → signed URL path
+- [x] Unit: Admin endpoints (users, farms, devices management) ✅
+- [x] Unit: Webhook HMAC signature validation, timestamp checks ✅
+- [x] Integration: Schema validation, idempotency tests ✅
+- [x] **Test coverage: 78.15%** (exceeds 70% target) ✅
+- [ ] Integration: Complete webhook → DB → signed URL path
 - [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys
 - [ ] Load: burst uploads to webhook
-- [ ] Security: signature tamper & replay tests
+- [ ] Security: comprehensive signature tamper & replay tests
 
 ---
 
@@ -299,14 +302,16 @@
 - [x] JWT auth, HttpOnly cookies
 - [x] Role guards (server & client)
 - [x] Admin screens for users, farms, devices (backend + frontend complete)
-**DoD:** Admin can create users, register devices, define farm boundaries ✅ Complete (farm boundaries/map pending)
+- [x] Comprehensive admin API tests (16 tests, 83% coverage) ✅
+**DoD:** Admin can create users, register devices, define farm boundaries ✅ Complete with tests (farm boundaries/map pending)
 
 ### Phase C — Ingest (AWS→Server) [PRIORITY]
 - [x] `/ingest/webhook` (HMAC, Schema, idempotent)
 - [x] Persist scans/assets/events/ingestion_log
+- [x] Webhook ingestion tests (signature validation, schema validation, idempotency) ✅
 - [ ] S3 policy/prefixes; EventBridge rule
 - [ ] Lambda signer; retries; DLQ
-**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend complete, AWS integration pending)
+**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend complete with tests, AWS integration pending)
 
 ### Phase D — Dashboard MVP
 - [ ] Technician: Scans list + detail (ImageViewer + mask), actions
