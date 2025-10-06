@@ -27,29 +27,47 @@ with open(SCHEMA_PATH) as f:
 
 # HMAC secret from environment
 HMAC_SECRET = os.getenv("HMAC_SECRET", "dev_secret_change_me")
-HMAC_WINDOW_SECONDS = 300  # Allow ±5 minutes
+# Allow override by env (default 5 minutes)
+HMAC_WINDOW_SECONDS = int(os.getenv("HMAC_WINDOW_SECONDS", "300"))
 
 
 def verify_hmac(timestamp: str, signature: str, body: bytes) -> bool:
     """Verify HMAC signature with timestamp."""
     try:
-        # Check timestamp is within window
         ts = int(timestamp)
         now = int(datetime.utcnow().timestamp())
-        if abs(now - ts) > HMAC_WINDOW_SECONDS:
-            return False
-        
-        # Verify signature
-        expected = hmac.new(
+        drift = now - ts
+
+        # Compute expected signature EXACTLY as used in compare
+        body_str = body.decode()
+        expected_hex = hmac.new(
             HMAC_SECRET.encode(),
-            f"{timestamp}.{body.decode()}".encode(),
+            f"{timestamp}.{body_str}".encode(),
             hashlib.sha256
         ).hexdigest()
-        
-        # Constant-time comparison
-        return hmac.compare_digest(f"sha256={expected}", signature)
-    except (ValueError, AttributeError):
+        expected_hdr = f"sha256={expected_hex}"
+
+        # DEBUG (remove after test)
+        print({
+            "DBG_HMAC": {
+                "now": now,
+                "ts": ts,
+                "drift_s": drift,
+                "within_window": abs(drift) <= HMAC_WINDOW_SECONDS,
+                "provided_sig_prefix": signature[:24] if signature else None,
+                "expected_sig_prefix": expected_hdr[:24],
+                "body_sha256": hashlib.sha256(body).hexdigest()
+            }
+        })
+
+        if abs(drift) > HMAC_WINDOW_SECONDS:
+            return False
+
+        return hmac.compare_digest(expected_hdr, signature)
+    except (ValueError, AttributeError) as e:
+        print({"DBG_HMAC_ERROR": str(e)})
         return False
+
 
 
 @router.post("/webhook")
@@ -73,7 +91,10 @@ async def ingest_webhook(
     """
     start_time = datetime.utcnow()
     body = await request.body()
-    
+    # DEBUG (remove after test)
+    print({"DBG_HEADERS": dict(request.headers)})
+    print({"DBG_BODY_SHA256": hashlib.sha256(body).hexdigest(), "len": len(body)})
+
     # Verify HMAC signature
     if not x_cti_timestamp or not x_cti_signature:
         raise HTTPException(status_code=401, detail="Missing HMAC headers")
@@ -102,6 +123,7 @@ async def ingest_webhook(
         jsonschema.validate(instance=meta_json, schema=META_SCHEMA)
     except jsonschema.ValidationError as e:
         error_msg = f"Schema validation failed: {e.message}"
+        print({"DBG_SCHEMA_ERR": error_msg, "path": list(e.path)})
         log_ingestion(db, meta_json.get("capture_id", "unknown"), ingest_key, 400, len(body), 
                      int((datetime.utcnow() - start_time).total_seconds() * 1000), error_msg)
         raise HTTPException(status_code=400, detail=error_msg)
