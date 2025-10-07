@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CTI Dashboard project includes a comprehensive test suite for the API backend with 78%+ code coverage (exceeds 70% target, approaching 80%).
+The CTI Dashboard project includes a comprehensive test suite for the API backend with **92.93% code coverage** (exceeds 80% target significantly).
 
 ## Running Tests
 
@@ -103,6 +103,37 @@ pytest --cov-report=html
 - ✅ `test_webhook_invalid_meta_schema` - Invalid meta.json schema rejected
 - ✅ `test_webhook_idempotency` - Duplicate webhooks handled correctly
 
+### Scans Management Tests (`tests/test_scans.py`)
+
+19 tests covering:
+- ✅ `test_list_scans_as_admin` - Admin can list all scans
+- ✅ `test_list_scans_as_technician` - Technician can list scans
+- ✅ `test_list_scans_unauthorized` - Unauthorized access rejected
+- ✅ `test_list_scans_with_status_filter` - Status filtering works
+- ✅ `test_list_scans_with_pagination` - Pagination works correctly
+- ✅ `test_get_scan_detail_as_admin` - Admin can view scan details
+- ✅ `test_get_scan_detail_as_technician` - Technician can view scan details
+- ✅ `test_get_scan_detail_not_found` - 404 for non-existent scans
+- ✅ `test_get_scan_detail_unauthorized` - Unauthorized access rejected
+- ✅ `test_get_scan_stats_as_admin` - Admin can view scan statistics
+- ✅ `test_get_scan_stats_as_technician` - Technician can view statistics
+- ✅ `test_get_scan_stats_unauthorized` - Unauthorized access rejected
+- ✅ `test_scan_with_image_asset` - Scans can link to image assets
+- ✅ `test_scan_with_mask_asset` - Scans can link to mask assets
+- ✅ `test_scan_status_transitions` - Status transitions work correctly
+- ✅ `test_scan_with_farm` - Scans can be linked to farms
+- ✅ And 3 more tests for presigned URLs and device/farm info
+
+### S3 Utilities Tests (`tests/test_s3_utils.py`)
+
+6 tests covering:
+- ✅ `test_generate_presigned_url_success` - Presigned URL generation works
+- ✅ `test_generate_presigned_url_with_custom_expiration` - Custom expiration works
+- ✅ `test_generate_presigned_url_client_error` - Client errors handled gracefully
+- ✅ `test_generate_presigned_url_no_credentials` - No credentials handled gracefully
+- ✅ `test_get_s3_client_with_profile` - S3 client with AWS profile
+- ✅ `test_get_s3_client_without_profile` - S3 client without AWS profile
+
 ### Health Check Tests (`tests/test_health.py`)
 
 - ✅ `test_health_endpoint` - Verifies /healthz returns ok status
@@ -113,13 +144,16 @@ pytest --cov-report=html
 | Module | Coverage | Notes |
 |--------|----------|-------|
 | `app/routers/auth.py` | 100% | Full coverage of authentication logic ✅ |
-| `app/routers/admin.py` | 83% | Admin endpoints (users, farms, devices) ✅ |
+| `app/routers/scans.py` | 95% | Scans endpoints with presigned URLs ✅ |
 | `app/routers/me.py` | 96% | Nearly complete coverage ✅ |
+| `app/main.py` | 92% | Main app setup covered ✅ |
+| `app/routers/webhooks.py` | 89% | Webhook ingestion and validation ✅ |
+| `app/routers/admin.py` | 83% | Admin endpoints (users, farms, devices) ✅ |
 | `app/models.py` | 100% | All models covered ✅ |
 | `app/schemas.py` | 100% | All schemas covered ✅ |
 | `app/security.py` | 100% | Password hashing and JWT covered ✅ |
-| `app/main.py` | 92% | Main app setup covered ✅ |
-| **Overall** | **78.15%** | Exceeds 70% target, approaching 80% ✅ |
+| `app/s3_utils.py` | 100% | S3 presigned URL generation ✅ |
+| **Overall** | **92.93%** | Significantly exceeds 80% target! ✅ |
 
 ## Test Database Strategy
 
@@ -241,8 +275,8 @@ Add more tests for uncovered modules. Focus on:
 - [x] Admin endpoint tests ✅
 - [x] Webhook ingestion tests ✅
 - [x] HMAC signature validation tests ✅
-- [ ] Complete scan management tests
-- [ ] File upload tests
+- [x] Scan management tests ✅
+- [x] S3 presigned URL tests ✅
 - [ ] PostGIS geometry tests
 - [ ] E2E tests with Playwright
 - [ ] Performance tests

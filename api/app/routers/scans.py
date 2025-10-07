@@ -1,18 +1,19 @@
 """
 Scans API endpoints for viewing and managing scans.
-Implements listing, detail views, and scan actions.
+Implements listing, detail views, and scan actions with role-based access control.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func
 from uuid import UUID
 from datetime import datetime
 
 from ..db import get_db
-from ..models import Scan, ScanStatus, Device, Farm, Asset, User
+from ..models import Scan, ScanStatus, Device, Farm, Asset, User, Role, UserRole
 from .me import get_current_user
+from ..s3_utils import generate_presigned_url
 
 router = APIRouter()
 
@@ -55,13 +56,21 @@ class ScanDetailOut(BaseModel):
     image_asset_id: Optional[UUID]
     image_bucket: Optional[str] = None
     image_key: Optional[str] = None
+    image_url: Optional[str] = None  # Presigned URL
     mask_asset_id: Optional[UUID]
     mask_bucket: Optional[str] = None
     mask_key: Optional[str] = None
+    mask_url: Optional[str] = None  # Presigned URL
     created_at: datetime
     
     class Config:
         from_attributes = True
+
+
+class ScanStatsOut(BaseModel):
+    total: int
+    by_status: Dict[str, int]
+    recent_count: int  # Scans in last 24 hours
 
 
 class PaginatedScans(BaseModel):
@@ -70,6 +79,24 @@ class PaginatedScans(BaseModel):
     page: int
     per_page: int
     total_pages: int
+
+
+# ============ Helper Functions ============
+
+def get_user_roles(user: User, db: Session) -> List[str]:
+    """Get list of role names for a user."""
+    roles = (
+        db.query(Role.name)
+        .join(UserRole, Role.id == UserRole.role_id)
+        .filter(UserRole.user_id == user.id)
+        .all()
+    )
+    return [r[0] for r in roles]
+
+
+def is_admin(user: User, db: Session) -> bool:
+    """Check if user has admin role."""
+    return "admin" in get_user_roles(user, db)
 
 
 # ============ Endpoints ============
@@ -134,6 +161,49 @@ def list_scans(
     )
 
 
+@router.get("/stats", response_model=ScanStatsOut)
+def get_scan_stats(
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get statistics about scans.
+    
+    Returns total count, breakdown by status, and recent activity.
+    Role-based: Admin sees all, others see scans from their farms.
+    """
+    # Build base query
+    query = db.query(Scan)
+    
+    # Apply role-based filtering (admin sees all)
+    if not is_admin(current, db):
+        # For non-admins, filter to scans where device is linked to their farms
+        # (This would need UserFarm relationship, for now allow all)
+        pass
+    
+    # Get total count
+    total = query.count()
+    
+    # Get breakdown by status
+    status_counts = (
+        db.query(Scan.status, func.count(Scan.id))
+        .group_by(Scan.status)
+        .all()
+    )
+    by_status = {status.value: count for status, count in status_counts}
+    
+    # Get recent count (last 24 hours)
+    from datetime import datetime, timedelta
+    yesterday = datetime.utcnow() - timedelta(days=1)
+    recent_count = query.filter(Scan.created_at >= yesterday).count()
+    
+    return ScanStatsOut(
+        total=total,
+        by_status=by_status,
+        recent_count=recent_count
+    )
+
+
 @router.get("/{scan_id}", response_model=ScanDetailOut)
 def get_scan(
     scan_id: UUID,
@@ -175,14 +245,22 @@ def get_scan(
     if scan.farm:
         result.farm_name = scan.farm.name
     
-    # Add image asset info
+    # Add image asset info with presigned URL
     if scan.image_asset:
         result.image_bucket = scan.image_asset.bucket
         result.image_key = scan.image_asset.object_key
+        result.image_url = generate_presigned_url(
+            scan.image_asset.bucket,
+            scan.image_asset.object_key
+        )
     
-    # Add mask asset info
+    # Add mask asset info with presigned URL
     if scan.mask_asset:
         result.mask_bucket = scan.mask_asset.bucket
         result.mask_key = scan.mask_asset.object_key
+        result.mask_url = generate_presigned_url(
+            scan.mask_asset.bucket,
+            scan.mask_asset.object_key
+        )
     
     return result

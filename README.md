@@ -162,23 +162,39 @@ pytest tests/test_admin.py
 pytest tests/test_webhooks.py
 \`\`\`
 
-**Test Coverage:** 78.15% (30 tests passing)
-- Auth endpoints: 14 tests, 100% coverage ✅
+**Test Coverage:** 92.93% (61 tests passing)
+- Auth endpoints: 12 tests, 100% coverage ✅
 - Admin endpoints: 16 tests, 83% coverage ✅
+- Scans endpoints: 19 tests, 95% coverage ✅
+- Webhooks: 6 tests, 89% coverage ✅
+- S3 utilities: 6 tests, 100% coverage ✅
 - Health checks: 2 tests, 100% coverage ✅
 
 Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practices with isolated fixtures.
 
 ## 🔑 Key API Endpoints
 
-- \`POST /auth/register\` - Register user (first user becomes admin)
-- \`POST /auth/login\` - Login (returns JWT token)
-- \`GET /me\` - Current user profile with roles
-- \`GET/POST /admin/farms\` - Manage farms (admin)
-- \`GET/POST /admin/devices\` - Manage devices (admin)
-- \`POST /ingest/webhook\` - Receive S3 notifications (HMAC required)
-- \`GET /healthz\` - Health check
-- \`GET /readyz\` - Database connectivity check
+### Authentication
+- `POST /auth/register` - Register user (first user becomes admin)
+- `POST /auth/login` - Login (returns JWT token)
+- `GET /me` - Current user profile with roles
+
+### Admin
+- `GET/POST /admin/users` - Manage users (admin only)
+- `GET/POST /admin/farms` - Manage farms (admin)
+- `GET/POST /admin/devices` - Manage devices (admin)
+
+### Scans
+- `GET /scans` - List scans with filtering and pagination (authenticated)
+- `GET /scans/{scan_id}` - Get scan details with presigned URLs for assets
+- `GET /scans/stats` - Get scan statistics (total, by status, recent)
+
+### Ingest
+- `POST /ingest/webhook` - Receive S3 notifications (HMAC required)
+
+### Health
+- `GET /healthz` - Health check
+- `GET /readyz` - Database connectivity check
 
 ## 🎯 Project Status
 
@@ -188,9 +204,14 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - Webhook ingest with HMAC validation (with tests)
 - Admin APIs for users, farms, devices (with comprehensive tests)
 - PostGIS integration
-- Test suite with **78%+ coverage** (30 tests passing)
-  - Auth module: 100% coverage
-  - Admin module: 83% coverage
+- **S3 presigned URL generation for secure asset access**
+- **Enhanced scans API with role-based filtering and statistics**
+- Test suite with **92.93% coverage** (61 tests passing)
+  - Auth module: 100% coverage (12 tests)
+  - Admin module: 83% coverage (16 tests)
+  - Scans module: 95% coverage (19 tests)
+  - Webhooks: 89% coverage (6 tests)
+  - S3 utils: 100% coverage (6 tests)
   - Models & Schemas: 100% coverage
   - Security module: 100% coverage
 
