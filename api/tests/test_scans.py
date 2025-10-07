@@ -65,8 +65,11 @@ def tech_token(client, technician_user):
 @pytest.fixture
 def test_device(test_db):
     """Create a test device."""
+    import uuid
     db = test_db()
-    device = Device(device_code="SCAN-DEV-001", label="Scan Test Device")
+    # Use unique device code to avoid conflicts between tests
+    device_code = f"SCAN-DEV-{str(uuid.uuid4())[:8]}"
+    device = Device(device_code=device_code, label="Scan Test Device")
     db.add(device)
     db.commit()
     db.refresh(device)
@@ -85,7 +88,7 @@ def test_scan(test_db, test_device):
         capture_id="cap_test_001",
         ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_test_001/",
         device_id=test_device,
-        status=ScanStatus.pending
+        status=ScanStatus.uploaded
     )
     db.add(scan)
     db.commit()
@@ -106,10 +109,10 @@ def test_list_scans_as_admin(client, admin_token, test_scan):
     )
     assert response.status_code == 200
     data = response.json()
-    assert "items" in data
+    assert "scans" in data
     assert "total" in data
     assert "page" in data
-    assert len(data["items"]) >= 1
+    assert len(data["scans"]) >= 1
 
 
 def test_list_scans_as_technician(client, tech_token, test_scan):
@@ -120,7 +123,7 @@ def test_list_scans_as_technician(client, tech_token, test_scan):
     )
     assert response.status_code == 200
     data = response.json()
-    assert "items" in data
+    assert "scans" in data
 
 
 def test_list_scans_unauthorized(client, test_scan):
@@ -132,14 +135,14 @@ def test_list_scans_unauthorized(client, test_scan):
 def test_list_scans_with_status_filter(client, admin_token, test_scan):
     """Can filter scans by status."""
     response = client.get(
-        "/scans?status=pending",
+        "/scans?status=uploaded",
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert response.status_code == 200
     data = response.json()
-    # All returned scans should have pending status
-    for scan in data["items"]:
-        assert scan["status"] == "pending"
+    # All returned scans should have uploaded status
+    for scan in data["scans"]:
+        assert scan["status"] == "uploaded"
 
 
 def test_list_scans_with_pagination(client, admin_token, test_scan):
@@ -173,7 +176,7 @@ def test_get_scan_detail_as_technician(client, tech_token, test_scan):
     """Technician can view scan details."""
     response = client.get(
         f"/scans/{test_scan}",
-        headers={"Authorization": f"Bearer {admin_token}"}
+        headers={"Authorization": f"Bearer {tech_token}"}
     )
     assert response.status_code == 200
 
@@ -248,7 +251,7 @@ def test_scan_with_image_asset(test_db, test_device):
         ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_with_asset/",
         device_id=test_device,
         image_asset_id=asset.id,
-        status=ScanStatus.pending
+        status=ScanStatus.uploaded
     )
     db.add(scan)
     db.commit()
@@ -287,7 +290,7 @@ def test_scan_with_mask_asset(test_db, test_device):
         device_id=test_device,
         image_asset_id=image_asset.id,
         mask_asset_id=mask_asset.id,
-        status=ScanStatus.pending
+        status=ScanStatus.uploaded
     )
     db.add(scan)
     db.commit()
@@ -304,31 +307,31 @@ def test_scan_status_transitions(test_db, test_device):
     """Scan can transition through different statuses."""
     db = test_db()
     
-    # Create scan in pending status
+    # Create scan in uploaded status
     scan = Scan(
         capture_id="cap_status_test",
         ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_status_test/",
         device_id=test_device,
-        status=ScanStatus.pending
+        status=ScanStatus.uploaded
     )
     db.add(scan)
     db.commit()
-    assert scan.status == ScanStatus.pending
+    assert scan.status == ScanStatus.uploaded
     
-    # Update to validated
-    scan.status = ScanStatus.validated
+    # Update to ingested
+    scan.status = ScanStatus.ingested
     db.commit()
-    assert scan.status == ScanStatus.validated
-    
-    # Update to grading
-    scan.status = ScanStatus.grading
-    db.commit()
-    assert scan.status == ScanStatus.grading
+    assert scan.status == ScanStatus.ingested
     
     # Update to graded
     scan.status = ScanStatus.graded
     db.commit()
     assert scan.status == ScanStatus.graded
+    
+    # Update to error
+    scan.status = ScanStatus.error
+    db.commit()
+    assert scan.status == ScanStatus.error
     
     db.close()
 
@@ -349,7 +352,7 @@ def test_scan_with_farm(test_db, test_device):
         ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_with_farm/",
         device_id=test_device,
         farm_id=farm.id,
-        status=ScanStatus.pending
+        status=ScanStatus.uploaded
     )
     db.add(scan)
     db.commit()
@@ -357,3 +360,94 @@ def test_scan_with_farm(test_db, test_device):
     # Verify link
     assert scan.farm_id == farm.id
     db.close()
+
+
+# ============ Enhanced Scan Detail Tests ============
+
+def test_get_scan_detail_with_presigned_urls(client, admin_token, test_scan, test_db):
+    """Scan detail includes presigned URLs for assets."""
+    from unittest.mock import patch
+    
+    # Create assets for the scan
+    db = test_db()
+    scan = db.get(Scan, test_scan)
+    
+    # Create image asset
+    image_asset = Asset(
+        bucket="test-bucket",
+        object_key="raw/SCAN-DEV-001/image.jpg",
+        sha256="img123",
+        size_bytes=1024,
+        mime_type="image/jpeg"
+    )
+    db.add(image_asset)
+    db.commit()
+    db.refresh(image_asset)
+    
+    # Link asset to scan
+    scan.image_asset_id = image_asset.id
+    db.commit()
+    db.close()
+    
+    # Mock presigned URL generation
+    with patch('app.routers.scans.generate_presigned_url') as mock_url:
+        mock_url.return_value = "https://example.com/signed-image.jpg"
+        
+        response = client.get(
+            f"/scans/{test_scan}",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "image_url" in data
+        # URL generation should be attempted
+        mock_url.assert_called()
+
+
+def test_scan_detail_includes_device_info(client, admin_token, test_scan):
+    """Scan detail includes related device information."""
+    response = client.get(
+        f"/scans/{test_scan}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "device_code" in data
+    assert data["device_code"] is not None  # Device code exists
+    assert data["device_label"] == "Scan Test Device"
+
+
+def test_scan_detail_includes_farm_info(test_db, client, admin_token, test_device):
+    """Scan detail includes farm information when available."""
+    db = test_db()
+    
+    # Create farm
+    farm = Farm(name="Detail Test Farm")
+    db.add(farm)
+    db.commit()
+    db.refresh(farm)
+    
+    # Create scan with farm
+    scan = Scan(
+        capture_id="cap_detail_farm",
+        ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_detail_farm/",
+        device_id=test_device,
+        farm_id=farm.id,
+        status=ScanStatus.uploaded
+    )
+    db.add(scan)
+    db.commit()
+    scan_id = scan.id
+    db.close()
+    
+    response = client.get(
+        f"/scans/{scan_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "farm_name" in data
+    assert data["farm_name"] == "Detail Test Farm"
