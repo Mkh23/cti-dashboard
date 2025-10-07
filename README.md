@@ -179,6 +179,11 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - `POST /auth/login` - Login (returns JWT token)
 - `GET /me` - Current user profile with roles
 
+### Profile Management
+- `GET /me` - Get current user profile (email, name, phone, address, roles)
+- `PUT /me` - Update user profile (name, phone, address)
+- `POST /me/password` - Change password
+
 ### Admin
 - `GET/POST /admin/users` - Manage users (admin only)
 - `GET/POST /admin/farms` - Manage farms (admin)
