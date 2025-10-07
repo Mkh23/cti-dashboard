@@ -6,6 +6,9 @@ export const API_BASE =
 export type Profile = {
   id: number;
   email: string;
+  full_name?: string | null;
+  phone_number?: string | null;
+  address?: string | null;
   roles: string[]; // ["admin","technician"] etc.
 };
 
@@ -37,6 +40,49 @@ export async function me(token: string) {
     throw new Error(txt || "Unauthorized");
   }
   return res.json() as Promise<Profile>;
+}
+
+export type UpdateProfileData = {
+  full_name?: string | null;
+  phone_number?: string | null;
+  address?: string | null;
+};
+
+export async function updateProfile(token: string, data: UpdateProfileData) {
+  const res = await fetch(`${API_BASE}/me`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update profile");
+  }
+  return res.json() as Promise<Profile>;
+}
+
+export type ChangePasswordData = {
+  current_password: string;
+  new_password: string;
+};
+
+export async function changePassword(token: string, data: ChangePasswordData) {
+  const res = await fetch(`${API_BASE}/me/password`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to change password");
+  }
+  return res.json() as Promise<{ message: string }>;
 }
 
 // Scans API

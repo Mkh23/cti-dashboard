@@ -116,6 +116,18 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 - `POST /auth/login` - Login (returns JWT token)
 - `GET /me` - Get current user info with roles
 
+### Profile Management
+
+- `GET /me` - Get current user profile (includes email, full_name, phone_number, address, roles)
+- `PUT /me` - Update user profile information
+  - Body: `{"full_name": "...", "phone_number": "...", "address": "..."}`
+  - All fields optional
+  - Returns updated profile
+- `POST /me/password` - Change user password
+  - Body: `{"current_password": "...", "new_password": "..."}`
+  - Validates current password before updating
+  - Returns success message
+
 ### Health Checks
 
 - `GET /healthz` - Basic health check
