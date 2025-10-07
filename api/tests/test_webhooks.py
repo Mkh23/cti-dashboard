@@ -71,7 +71,7 @@ def test_webhook_valid_payload(client, test_device):
     
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "ingested"
+    assert data["status"] == "success"
     assert "scan_id" in data
 
 
@@ -183,10 +183,10 @@ def test_webhook_idempotency(client, test_device):
     timestamp = str(int(datetime.utcnow().timestamp()))
     payload = {
         "bucket": "test-bucket",
-        "ingest_key": f"raw/{test_device.device_code}/2025/01/01/cap_idem/",
+        "ingest_key": f"raw/{test_device.device_code}/2025/01/01/cap_999888/",
         "device_code": test_device.device_code,
         "objects": ["image.jpg", "meta.json"],
-        "meta_json": create_valid_meta_json("cap_idem", test_device.device_code)
+        "meta_json": create_valid_meta_json("cap_999888", test_device.device_code)
     }
     
     body = json.dumps(payload)
@@ -202,16 +202,23 @@ def test_webhook_idempotency(client, test_device):
     scan_id_1 = response1.json()["scan_id"]
     
     # Second request with same payload (new timestamp and signature)
-    timestamp2 = str(int(datetime.utcnow().timestamp()))
+    import time
+    time.sleep(2)  # Ensure different timestamp
+    # Use current time to avoid timing issues
+    timestamp2 = str(int(time.time()))
     signature2 = create_hmac_signature(timestamp2, body)
     headers2 = {
         "X-CTI-Timestamp": timestamp2,
-        "X-CTI-Signature": signature2
+        "X-CTI-Signature": signature2,
+        "Content-Type": "application/json"
     }
     
-    response2 = client.post("/ingest/webhook", headers=headers2, json=payload)
+    # Use raw body content for second request to ensure exact signature match
+    response2 = client.post("/ingest/webhook", headers=headers2, content=body)
     assert response2.status_code == 200
-    scan_id_2 = response2.json()["scan_id"]
+    data2 = response2.json()
+    assert data2["status"] == "duplicate"
+    scan_id_2 = data2["scan_id"]
     
     # Should return same scan
     assert scan_id_1 == scan_id_2
