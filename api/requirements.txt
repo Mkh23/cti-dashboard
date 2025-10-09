@@ -16,3 +16,5 @@ pytest==8.3.3
 pytest-cov==6.0.0
 httpx==0.27.2
 boto3==1.35.0
+boto3==1.40.46
+botocore==1.40.46
