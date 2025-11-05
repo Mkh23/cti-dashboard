@@ -1,5 +1,7 @@
 # Solution Summary: Fix users.updated_at Column Issue
 
+> **Historical context:** This solution recap documents the late-2024 fix for missing `users.updated_at`. The database migrations and automated tests described here remain in place; consult the root `README.md` and `TESTING.md` for the latest coverage statistics and operational guidance.
+
 ## Problem
 When trying to register a user, the application raised an error:
 ```

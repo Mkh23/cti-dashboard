@@ -78,15 +78,15 @@
 - [ ] CLI/script & Admin UI button to trigger replay
 
 ### 3.4 End-to-End Testing
-- [ ] Local test harness to simulate S3 → Lambda → webhook flow
-- [ ] Basic test images with meta.json templates
+- [x] Local test harness to simulate S3 → Lambda → webhook flow (`scripts/test_webhook_hmac.py`)
+- [x] Basic test images with meta.json templates (`tests/test_ingestion_e2e.py`)
 - [ ] S3 event notification simulator
 
 **DoD (Ingest):**
 - [ ] Uploading a file under `raw/.../cap_xxx/` leads to a `scans + assets` row within 5s
-- [ ] Tampered signature is rejected (403), logged
+- [x] Tampered signature is rejected (403), logged (see `tests/test_webhooks.py::test_webhook_invalid_signature`)
 - [ ] Failed events appear in DLQ and can be replayed successfully
-- [ ] Test harness verifies complete ingest flow
+- [x] Test harness verifies complete ingest flow (FastAPI client + HMAC script)
 
 ---
 
@@ -100,8 +100,8 @@
 **Optional:** `operator_id, farm_id, gps{lat,lon}, mask_sha256, files{mask_relpath,extra[]}, inference_summary{...}`
 
 **DoD (Schema):**
-- [ ] Valid sample passes; missing `image_relpath` fails with clear message
-- [ ] Contract doc published for Pi-side devs
+- [x] Valid sample passes; missing `image_relpath` fails with clear message (covered by webhook tests)
+- [x] Contract doc published for Pi-side devs (`DATA_MODEL.md` §5)
 
 ---
 
@@ -368,11 +368,11 @@
 ---
 
 ## 15) Next 5 Commits (Actionable) [REORDERED]
-1. [x] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit tests (schema & validation complete, unit tests pending)
+1. [x] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit/integration tests (schema + validation complete)
 2. [x] Alembic baseline: users/roles → farms/devices/animals → scans/assets/events/ingestion_log → grading_results/notifications  
 3. [x] Admin screens: Users, Farms (with PostGIS), Devices (registry) (backend APIs complete, frontend UI pending)
 4. [ ] EventBridge + Lambda skeleton (Secrets Manager, signed POST, retries, DLQ)  
-5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard (health checks complete, Prometheus/Grafana pending)
+5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard (health checks complete; metrics/visuals pending)
 
 ---
 
