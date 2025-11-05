@@ -94,9 +94,14 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 
 - Auth & RBAC (`/auth`, `/me`)
 - Admin management for users, farms, and devices (`/admin/*`)
+- Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, and stats (`/scans`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
 - Health & readiness probes (`/healthz`, `/readyz`)
+
+## Dashboard highlights
+
+- Admin users page shows each person's name, email, and lets admins toggle roles with immediate API persistence
 
 ## Running tests
 

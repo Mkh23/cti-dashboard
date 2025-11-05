@@ -26,6 +26,7 @@ def require_admin(user: User, db: Session):
 class UserWithRoles(BaseModel):
     id: UUID
     email: str
+    full_name: Optional[str]
     roles: List[str]
 
 class UpdateRolesPayload(BaseModel):
@@ -88,7 +89,14 @@ def list_users(current: User = Depends(get_current_user), db: Session = Depends(
             )
         ]
 
-        out.append(UserWithRoles(id=u.id, email=u.email, roles=role_names))
+        out.append(
+            UserWithRoles(
+                id=u.id,
+                email=u.email,
+                full_name=u.full_name,
+                roles=role_names,
+            )
+        )
     return out
 
 @router.put("/users/{user_id}/roles", response_model=UserWithRoles)
@@ -108,7 +116,12 @@ def set_roles(user_id: UUID, payload: UpdateRolesPayload, current: User = Depend
         db.add(UserRole(user_id=u.id, role_id=valid_roles[rn].id))
     db.commit()
 
-    return UserWithRoles(id=u.id, email=u.email, roles=payload.roles)
+    return UserWithRoles(
+        id=u.id,
+        email=u.email,
+        full_name=u.full_name,
+        roles=payload.roles,
+    )
 
 
 # ============ Farm Management ============

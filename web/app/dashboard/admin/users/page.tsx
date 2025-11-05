@@ -3,21 +3,21 @@
 
 import { useEffect, useState } from "react";
 
-type UserRow = { id: number; email: string; roles: string[] };
+type UserRow = { id: string; email: string; full_name: string | null; roles: string[] };
 const API = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
 export default function AdminUsersPage() {
   const [data, setData] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<number | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
   const roles = ["admin", "technician", "farmer"];
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { setError("Not logged in"); return; }
-    fetch(`${API}/admin/users`, { headers: { Authorization: `Bearer ${token}` }})
-      .then(r => r.ok ? r.json() : Promise.reject(new Error("Failed to load")))
-      .then(setData)
+    fetch(`${API}/admin/users`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error("Failed to load"))))
+      .then((payload: UserRow[]) => setData(payload))
       .catch(e => setError(e.message));
   }, []);
 
@@ -39,8 +39,8 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ roles: nextRoles })
       });
       if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json();
-      setData(prev => prev.map(x => x.id === u.id ? updated : x));
+      const updated: UserRow = await res.json();
+      setData(prev => prev.map(x => (x.id === u.id ? updated : x)));
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left">
-              <th className="px-3 py-2">ID</th>
+              <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Roles</th>
             </tr>
@@ -67,7 +67,9 @@ export default function AdminUsersPage() {
           <tbody>
             {data.map(u => (
               <tr key={u.id} className="border-t border-white/10">
-                <td className="px-3 py-2">{u.id}</td>
+                <td className="px-3 py-2">
+                  {u.full_name && u.full_name.trim().length > 0 ? u.full_name : <span className="text-gray-400">No name set</span>}
+                </td>
                 <td className="px-3 py-2">{u.email}</td>
                 <td className="px-3 py-2">
                   <div className="flex gap-2">
