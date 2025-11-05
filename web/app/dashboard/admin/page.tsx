@@ -68,7 +68,7 @@ export default function AdminDash() {
                 </a>
             </li>
             <li>
-              • <a className="underline" href="/dashboard/admin/farms">
+              • <a className="underline" href="/dashboard/farms">
                   Manage Farms →
                 </a>
             </li>

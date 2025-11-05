@@ -44,6 +44,11 @@ export default function TechnicianDash() {
             <li>• Connect to PostGIS entities (farms/devices/scans)</li>
             <li>• Wire S3 object listings & previews</li>
             <li>
+              • <a className="underline" href="/dashboard/farms">
+                  Manage Farms →
+                </a>
+            </li>
+            <li>
               • <a className="underline" href="/dashboard/technician/profile">
                   Profile Settings →
                 </a>

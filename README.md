@@ -93,7 +93,8 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 ## API highlights
 
 - Auth & RBAC (`/auth`, `/me`)
-- Admin management for users, farms, and devices (`/admin/*`)
+- Admin management for users and devices (`/admin/*`)
+- Role-aware farm APIs (`/farms`) so admins can view all farms while technicians and farmers manage only their own
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, and stats (`/scans`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
@@ -102,10 +103,11 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 ## Dashboard highlights
 
 - Admin users page shows each person's name, email, and lets admins toggle roles with immediate API persistence
+- Shared farm manager page for admins, technicians, and farmers with create/view/edit flows respecting ownership
 
 ## Running tests
 
-The backend test suite exercises auth, admin, scans, webhook flows, and S3 helpers (61 tests across `tests/`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
+The backend test suite exercises auth, admin, farms, scans, webhook flows, and S3 helpers (73 tests across `tests/`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
 
 ```bash
 cd api
@@ -122,9 +124,10 @@ pytest --cov=app --cov-report=term-missing
 - Auth + role enforcement with admin-only management APIs and comprehensive unit/integration tests in `tests/`
 - Ingest webhook with JSON Schema validation, HMAC window enforcement, idempotency, and logging
 - Scan listing/detail/statistics endpoints returning presigned URLs for assets
+- Role-aware farm ownership enforced via `/farms` endpoints and `user_farms` association with dedicated tests
 
 🚧 **Work in progress**
-- Frontend dashboards beyond admin stubs (technician/farmer flows and scan viewers)
+- Frontend dashboards beyond admin stubs (technician/farmer scan viewers and grading insights)
 - AWS infrastructure wiring (EventBridge rule, Lambda signer, DLQ replay)
 - Automated provisioning of environment secrets and TLS termination
 
@@ -139,7 +142,7 @@ pytest tests/test_admin.py
 pytest tests/test_webhooks.py
 \`\`\`
 
-**Test Coverage:** 92.93% (61 tests passing)
+**Test Coverage:** ~93% when Postgres is available (73 tests)
 - Auth endpoints: 12 tests, 100% coverage ✅
 - Admin endpoints: 16 tests, 83% coverage ✅
 - Scans endpoints: 19 tests, 95% coverage ✅
@@ -163,8 +166,12 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 
 ### Admin
 - `GET/POST /admin/users` - Manage users (admin only)
-- `GET/POST /admin/farms` - Manage farms (admin)
 - `GET/POST /admin/devices` - Manage devices (admin)
+
+### Farms
+- `GET /farms` - List farms available to the current user (admins see all)
+- `POST /farms` - Create a farm (admins, technicians, and farmers)
+- `GET/PUT /farms/{farm_id}` - View or update farms you own; admins can update any farm
 
 ### Scans
 - `GET /scans` - List scans with filtering and pagination (authenticated)
@@ -184,11 +191,12 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - Database schema with Alembic migrations
 - User authentication and RBAC (with comprehensive tests)
 - Webhook ingest with HMAC validation (with tests)
-- Admin APIs for users, farms, devices (with comprehensive tests)
+- Admin APIs for users and devices (with comprehensive tests)
+- Role-aware farm APIs covering admins, technicians, and farmers (with comprehensive tests)
 - PostGIS integration
 - **S3 presigned URL generation for secure asset access**
 - **Enhanced scans API with role-based filtering and statistics**
-- Test suite with **92.93% coverage** (61 tests passing)
+- Test suite with **~93% coverage** (73 tests passing when Postgres is available)
   - Auth module: 100% coverage (12 tests)
   - Admin module: 83% coverage (16 tests)
   - Scans module: 95% coverage (19 tests)

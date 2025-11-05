@@ -41,6 +41,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
+    farm_links = relationship("UserFarm", back_populates="user", cascade="all, delete-orphan")
 
 
 class UserRole(Base):
@@ -50,6 +51,19 @@ class UserRole(Base):
 
     user = relationship("User", back_populates="roles")
     role = relationship("Role")
+
+
+# ============ User ↔ Farm Access ============
+
+class UserFarm(Base):
+    __tablename__ = "user_farms"
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id", ondelete="CASCADE"), primary_key=True)
+    is_owner: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="farm_links")
+    farm = relationship("Farm", back_populates="user_links")
 
 
 # ============ Farms & Animals ============
@@ -62,6 +76,8 @@ class Farm(Base):
     centroid = Column(Geometry(geometry_type="POINT", srid=4326, spatial_index=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user_links = relationship("UserFarm", back_populates="farm", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_farms_geofence_gist", geofence, postgresql_using="gist"),

@@ -170,11 +170,19 @@ export async function getScan(token: string, scanId: string) {
 
 // Admin API
 
+export type FarmOwner = {
+  user_id: string;
+  email: string;
+  full_name?: string | null;
+};
+
 export type Farm = {
   id: string;
   name: string;
   created_at: string;
   updated_at: string;
+  owners: FarmOwner[];
+  can_edit: boolean;
 };
 
 export type Device = {
@@ -191,7 +199,7 @@ export type Device = {
 };
 
 export async function listFarms(token: string) {
-  const res = await fetch(`${API_BASE}/admin/farms`, {
+  const res = await fetch(`${API_BASE}/farms`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -202,18 +210,53 @@ export async function listFarms(token: string) {
   return res.json() as Promise<Farm[]>;
 }
 
-export async function createFarm(token: string, name: string) {
-  const res = await fetch(`${API_BASE}/admin/farms`, {
+export async function createFarm(
+  token: string,
+  data: { name: string; owner_ids?: string[] }
+) {
+  const res = await fetch(`${API_BASE}/farms`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(data),
   });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(txt || "Failed to create farm");
+  }
+  return res.json() as Promise<Farm>;
+}
+
+export async function getFarm(token: string, farmId: string) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch farm");
+  }
+  return res.json() as Promise<Farm>;
+}
+
+export async function updateFarm(
+  token: string,
+  farmId: string,
+  data: { name?: string; owner_ids?: string[] }
+) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update farm");
   }
   return res.json() as Promise<Farm>;
 }
