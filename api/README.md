@@ -28,6 +28,36 @@ HMAC_SECRET=change_me
 CORS_ORIGINS=http://localhost:3000
 ```
 
+## API Endpoints
+
+### Authentication
+
+- `POST /auth/register` - Register new user
+- `POST /auth/login` - Login (returns JWT token)
+- `GET /me` - Get current user info with roles
+
+### Profile Management
+
+- `GET /me` - Get current user profile (includes email, full_name, phone_number, address, roles)
+- `PUT /me` - Update user profile information
+  - Body: `{"full_name": "...", "phone_number": "...", "address": "..."}`
+  - All fields optional
+  - Returns updated profile
+- `POST /me/password` - Change user password
+  - Body: `{"current_password": "...", "new_password": "..."}`
+  - Validates current password before updating
+  - Returns success message
+
+### Health Checks
+
+- `GET /healthz` - Basic health check
+- `GET /readyz` - Database connectivity check
+
+### Admin
+
+- `GET/POST /admin/users` - User management
+- `GET/POST /admin/farms` - Farm management
+- `GET/POST /admin/devices` - Device registry
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers

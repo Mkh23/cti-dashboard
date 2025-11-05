@@ -144,6 +144,7 @@
 - [x] Role-based access (admin/technician/farmer), farm scoping
 - [x] First user registration automatically becomes admin
 - [x] Comprehensive auth tests (14 tests, 100% auth module coverage)
+- [x] Profile management endpoints (`PUT /me`, `POST /me/password`) with 10 comprehensive tests
 
 ### 6.2 Ingest & Scans [PRIORITY]
 - [x] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key` ✅
@@ -212,10 +213,12 @@
 ### 8.1 Pages
 - [x] Auth: login/register/reset; `/me` hydration; role redirect
 - [x] Admin: Users, Farms (map pending), Devices (registry + telemetry)
+- [x] Profile Management: All roles can update profile info and change password
 - [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
 ### 8.2 Components
+- [x] ProfilePanel: Shared component for profile management (profile info + password change)
 - [ ] DataTable (server pagination, 50/page default)
 - [ ] ImageViewer (zoom/pan, mask toggle, signed URL refresh)
 - [ ] Map (GeoJSON, farm polygon), StatusPill, Toasts
@@ -283,11 +286,13 @@
 - [x] Integration: Full auth flow with test database ✅
 - [x] Test infrastructure: pytest with PostgreSQL test database ✅
 - [x] Unit: Admin endpoints (users, farms, devices management) ✅
+- [x] Unit: Profile management endpoints (update profile, change password) - 10 comprehensive tests ✅
 - [x] Unit: Webhook HMAC signature validation, timestamp checks ✅
 - [x] Integration: Schema validation, idempotency tests ✅
 - [x] Unit: S3 presigned URL generation (100% coverage) ✅
 - [x] Integration: Scans management with role-based access (see `tests/test_scans.py`) ✅
 - [x] Integration: Complete webhook → DB → signed URL path ✅
+- [x] **Test coverage: 93.27%** (significantly exceeds 80% target!) ✅
 - [x] Coverage gate at 70% (pytest `--cov-fail-under=70`); latest local run >80% ✅
 - [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys
 - [ ] Load: burst uploads to webhook
