@@ -6,7 +6,7 @@ from uuid import UUID
 from datetime import datetime
 
 from ..db import get_db
-from ..models import User, Role, UserRole, Farm, Device
+from ..models import User, Role, UserRole, Device
 from .me import get_current_user  # uses Bearer token
 
 router = APIRouter()
@@ -31,19 +31,6 @@ class UserWithRoles(BaseModel):
 
 class UpdateRolesPayload(BaseModel):
     roles: List[str]
-
-class FarmOut(BaseModel):
-    id: UUID
-    name: str
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-class FarmCreate(BaseModel):
-    name: str
-    # Note: geofence and centroid can be added later via GeoJSON
 
 class DeviceOut(BaseModel):
     id: UUID
@@ -122,35 +109,6 @@ def set_roles(user_id: UUID, payload: UpdateRolesPayload, current: User = Depend
         full_name=u.full_name,
         roles=payload.roles,
     )
-
-
-# ============ Farm Management ============
-
-@router.get("/farms", response_model=List[FarmOut])
-def list_farms(current: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """List all farms."""
-    require_admin(current, db)
-    farms = db.query(Farm).order_by(Farm.name).all()
-    return farms
-
-@router.post("/farms", response_model=FarmOut)
-def create_farm(payload: FarmCreate, current: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Create a new farm."""
-    require_admin(current, db)
-    farm = Farm(name=payload.name)
-    db.add(farm)
-    db.commit()
-    db.refresh(farm)
-    return farm
-
-@router.get("/farms/{farm_id}", response_model=FarmOut)
-def get_farm(farm_id: UUID, current: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Get farm by ID."""
-    require_admin(current, db)
-    farm = db.get(Farm, farm_id)
-    if not farm:
-        raise HTTPException(status_code=404, detail="Farm not found")
-    return farm
 
 
 # ============ Device Management ============

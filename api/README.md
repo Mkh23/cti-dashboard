@@ -56,8 +56,13 @@ CORS_ORIGINS=http://localhost:3000
 ### Admin
 
 - `GET/POST /admin/users` - User management
-- `GET/POST /admin/farms` - Farm management
 - `GET/POST /admin/devices` - Device registry
+
+### Farms
+
+- `GET /farms` - List farms scoped to the authenticated user (admins see all)
+- `POST /farms` - Create a farm (admins, technicians, and farmers)
+- `GET/PUT /farms/{farm_id}` - View/update farms the caller owns; admins can update anyone's farm
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers
@@ -66,7 +71,8 @@ CORS_ORIGINS=http://localhost:3000
 - `app/routers/` – API routers
   - `auth.py` – register/login endpoints, role seeding
   - `me.py` – current user info via bearer token
-  - `admin.py` – user/farm/device management (admin-only)
+  - `admin.py` – user/device management (admin-only)
+  - `farms.py` – farm management with role-aware ownership controls
   - `scans.py` – scan list/detail/stats and presigned URLs
   - `webhooks.py` – signed ingest webhook with JSON schema validation
 - `app/s3_utils.py` – presigned URL helper

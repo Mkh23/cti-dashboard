@@ -132,60 +132,6 @@ def test_update_user_roles_as_technician_forbidden(client, tech_token, technicia
     assert response.status_code == 403
 
 
-# ============ Farm Management Tests ============
-
-def test_create_farm_as_admin(client, admin_token):
-    """Admin can create a farm."""
-    response = client.post(
-        "/admin/farms",
-        headers={"Authorization": f"Bearer {admin_token}"},
-        json={"name": "Test Farm"}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "Test Farm"
-    assert "id" in data
-    assert "created_at" in data
-
-
-def test_list_farms_as_admin(client, admin_token):
-    """Admin can list all farms."""
-    # Create a farm first
-    client.post(
-        "/admin/farms",
-        headers={"Authorization": f"Bearer {admin_token}"},
-        json={"name": "Farm 1"}
-    )
-    
-    response = client.get(
-        "/admin/farms",
-        headers={"Authorization": f"Bearer {admin_token}"}
-    )
-    assert response.status_code == 200
-    farms = response.json()
-    assert isinstance(farms, list)
-    assert len(farms) >= 1
-
-
-def test_create_farm_as_technician_forbidden(client, tech_token):
-    """Non-admin cannot create farms."""
-    response = client.post(
-        "/admin/farms",
-        headers={"Authorization": f"Bearer {tech_token}"},
-        json={"name": "Test Farm"}
-    )
-    assert response.status_code == 403
-
-
-def test_create_farm_unauthorized(client):
-    """Cannot create farm without authentication."""
-    response = client.post(
-        "/admin/farms",
-        json={"name": "Test Farm"}
-    )
-    assert response.status_code == 401
-
-
 # ============ Device Management Tests ============
 
 def test_create_device_as_admin(client, admin_token):

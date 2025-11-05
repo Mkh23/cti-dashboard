@@ -9,7 +9,7 @@
 - [x] Define end-to-end data flow and security boundaries
 - [x] Lock region, bucket, and S3 prefix policy for `dev`
 - [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete; AWS wiring pending)
-- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (admin flows scaffolded; technician/farmer UX and grading views outstanding)
+- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (admin flows scaffolded; technician/farmer farm management live, grading views outstanding)
 - [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
 ## 1) Environments & Infra
@@ -156,7 +156,8 @@
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
 - [x] `GET/POST /devices` (registry: device_code, label, farm_id, s3_prefix_hint)
-- [x] `GET/POST /admin/users` & `/admin/farms`
+- [x] `GET/POST /admin/users`
+- [x] Role-aware farm management via `/farms` endpoints (admins view all, owners manage their farms)
 - [x] Admin dashboard scaffolding (before detailed technician/farmer UI)
 - [x] User/role management, device registration, farm geofencing
 - [ ] Basic system status dashboard
