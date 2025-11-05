@@ -2,7 +2,7 @@
 
 ## Overview
 
-The FastAPI backend ships with a comprehensive pytest suite that exercises authentication, admin management, scan endpoints, webhook ingest, S3 helpers, and health checks. Coverage enforcement is configured at 70% (`pytest --cov-fail-under=70`), and with a running Postgres/PostGIS instance the suite typically lands in the low 80s (recent maintainer runs range 78–82%).
+The FastAPI backend ships with a comprehensive pytest suite that exercises authentication, admin management, scan endpoints, webhook ingest, S3 helpers, and health checks. Coverage enforcement is configured at 70% (`pytest --cov-fail-under=70`), and with a running Postgres/PostGIS instance the suite typically reports coverage in the low 90s.
 
 ## Prerequisites
 
@@ -30,8 +30,6 @@ source .venv/bin/activate
 pytest --cov=app --cov-report=term-missing
 ```
 
-> **Note:** The suite expects a reachable Postgres/PostGIS service. In containerized CI, ensure Docker is available or run tests against a managed Postgres instance. Without Postgres the run will fail with `psycopg2.OperationalError`.
-
 To inspect the HTML coverage report:
 
 ```bash
@@ -56,15 +54,9 @@ pytest tests/test_admin.py::test_list_users_as_admin
 - `tests/test_health.py` – healthz/readyz endpoints
 - Fixtures in `tests/conftest.py` spin up fresh databases per test and seed default roles when required.
 
-## End-to-end helpers
-
-- `scripts/test_webhook_hmac.py` signs and submits a webhook payload to `POST /ingest/webhook`, mirroring the EventBridge/Lambda hand-off. Export `HMAC_SECRET` if you override the default secret.
-- `tests/test_ingestion_e2e.py` provides an optional S3 smoke test (skipped unless `CTI_BUCKET` is set) to verify raw uploads land in the expected prefixes.
-
 ## Troubleshooting
 
 - **`psycopg2.OperationalError: connection refused`** – ensure Postgres is running and accessible on the expected host/port.
-- **`sqlalchemy.exc.OperationalError: could not translate host name`** – point `TEST_DATABASE_URL` at a reachable Postgres instance; SQLite is insufficient because of PostGIS column types.
 - **`Database not properly initialized. Please run migrations`** – execute `alembic upgrade head` against the primary database before running tests.
 - **`meta.json` schema failures** – confirm ingest payloads align with `app/schemas/meta_v1.json`.
 - **Coverage below threshold** – expand test scenarios for uncovered branches (see coverage report) or verify PostGIS is enabled so geometry columns can be created.

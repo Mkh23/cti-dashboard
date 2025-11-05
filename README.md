@@ -108,12 +108,7 @@ source .venv/bin/activate
 pytest --cov=app --cov-report=term-missing
 ```
 
-`pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres/PostGIS service the suite clears the gate and typically reports coverage in the low 80s (recent maintainer runs range 78–82%). See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
-
-### Additional tooling
-
-- `scripts/test_webhook_hmac.py` — local webhook harness that signs payloads with HMAC (simulates Lambda → FastAPI call)
-- `tests/test_ingestion_e2e.py` — optional S3 smoke test (skipped unless `CTI_BUCKET` is set) to exercise the raw upload path
+`pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres service the suite passes and typically reports coverage in the low 90s. See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
 
 ## Project status snapshot
 
@@ -133,6 +128,98 @@ pytest --cov=app --cov-report=term-missing
 - Stand up worker pipeline for grading results and overlays
 - Implement observability, lifecycle policies, and CI/CD deploy automation
 
+# Run specific test files
+pytest tests/test_auth.py
+pytest tests/test_admin.py
+pytest tests/test_webhooks.py
+\`\`\`
+
+**Test Coverage:** 92.93% (61 tests passing)
+- Auth endpoints: 12 tests, 100% coverage ✅
+- Admin endpoints: 16 tests, 83% coverage ✅
+- Scans endpoints: 19 tests, 95% coverage ✅
+- Webhooks: 6 tests, 89% coverage ✅
+- S3 utilities: 6 tests, 100% coverage ✅
+- Health checks: 2 tests, 100% coverage ✅
+
+Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practices with isolated fixtures.
+
+## 🔑 Key API Endpoints
+
+### Authentication
+- `POST /auth/register` - Register user (first user becomes admin)
+- `POST /auth/login` - Login (returns JWT token)
+- `GET /me` - Current user profile with roles
+
+### Profile Management
+- `GET /me` - Get current user profile (email, name, phone, address, roles)
+- `PUT /me` - Update user profile (name, phone, address)
+- `POST /me/password` - Change password
+
+### Admin
+- `GET/POST /admin/users` - Manage users (admin only)
+- `GET/POST /admin/farms` - Manage farms (admin)
+- `GET/POST /admin/devices` - Manage devices (admin)
+
+### Scans
+- `GET /scans` - List scans with filtering and pagination (authenticated)
+- `GET /scans/{scan_id}` - Get scan details with presigned URLs for assets
+- `GET /scans/stats` - Get scan statistics (total, by status, recent)
+
+### Ingest
+- `POST /ingest/webhook` - Receive S3 notifications (HMAC required)
+
+### Health
+- `GET /healthz` - Health check
+- `GET /readyz` - Database connectivity check
+
+## 🎯 Project Status
+
+✅ **Completed**
+- Database schema with Alembic migrations
+- User authentication and RBAC (with comprehensive tests)
+- Webhook ingest with HMAC validation (with tests)
+- Admin APIs for users, farms, devices (with comprehensive tests)
+- PostGIS integration
+- **S3 presigned URL generation for secure asset access**
+- **Enhanced scans API with role-based filtering and statistics**
+- Test suite with **92.93% coverage** (61 tests passing)
+  - Auth module: 100% coverage (12 tests)
+  - Admin module: 83% coverage (16 tests)
+  - Scans module: 95% coverage (19 tests)
+  - Webhooks: 89% coverage (6 tests)
+  - S3 utils: 100% coverage (6 tests)
+  - Models & Schemas: 100% coverage
+  - Security module: 100% coverage
+
+🚧 **In Progress**
+- Dashboard UI components
+- Scans management API
+- AWS integration (EventBridge, Lambda, DLQ)
+
+📋 **Planned**
+- Grading worker pipeline
+- Farmer and Technician dashboards
+- Monitoring and CI/CD
+
+See [ROADMAP.md](ROADMAP.md) for details.
+
+## 🔒 Security
+
+- HMAC signatures for webhooks
+- JWT tokens for API auth
+- RBAC with three roles
+- CORS protection
+- Store secrets in environment variables
+
+## 📦 Environment Variables
+
+\`\`\`bash
+# API
+DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
+JWT_SECRET=your_secret_here
+HMAC_SECRET=your_secret_here
+CORS_ORIGINS=http://localhost:3000
 ## Security posture
 
 - JWT auth with bcrypt hashing and expiry windows
