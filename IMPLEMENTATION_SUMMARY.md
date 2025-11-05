@@ -1,5 +1,7 @@
 # Implementation Summary - CTI Dashboard Test Coverage Enhancement
 
+> **Historical note (Oct 2025):** This summary captures the initial push that expanded backend test coverage in mid-2025. The current suite still enforces a 70% coverage gate via `pytest.ini` and continues to exercise the flows described below. For up-to-date instructions, see `README.md` and `TESTING.md`.
+
 ## Overview
 This document summarizes the work completed to enhance test coverage for the CTI Dashboard project, bringing it from 70.92% to 78.15% and implementing comprehensive tests for admin and webhook endpoints.
 

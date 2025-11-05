@@ -1,160 +1,132 @@
 # CTI Dashboard — Cattle Tech Imaging Platform
 
-A production-ready platform for capturing bovine ultrasound images, validating and ingesting them via AWS S3, and presenting actionable insights through a role-based dashboard.
+CTI (Cattle Tech Imaging) connects Raspberry Pi capture devices to AWS S3, ingests signed webhook events into a FastAPI backend, stores geo-aware metadata in Postgres/PostGIS, and surfaces results through a role-aware Next.js dashboard.
 
-**Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard
+**Data flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js dashboard.
 
-## 📚 Documentation
+## Documentation
 
-- [PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md) - Project overview, architecture, and goals
-- [ROADMAP.md](ROADMAP.md) - Detailed roadmap with checklists
-- [DATA_MODEL.md](DATA_MODEL.md) - Database schema, contracts, and examples
+- [PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md) – Product vision, architecture, and context
+- [ROADMAP.md](ROADMAP.md) – Detailed milestones and checklist tracking
+- [DATA_MODEL.md](DATA_MODEL.md) – Database schema and entity relationships
+- [TESTING.md](TESTING.md) – Test plan, fixtures, and troubleshooting notes
 
-## Repo Structure
+## Repository layout
+
+```
 cti-dashboard/
-├─ api/ # FastAPI app + Alembic
-│ ├─ app/ # application code
-│ ├─ alembic/ # migrations
-│ ├─ requirements.txt
-│ └─ .env # DATABASE_URL, JWT_SECRET, etc.
-├─ web/ # Next.js 14 (TypeScript + Tailwind)
-│ └─ .env.local # NEXT_PUBLIC_API_BASE=http://localhost:8000
-├─ scripts/
-│ └─ dev.sh # one-command dev launcher (migrations included)
-├─ docker-compose.yml # Postgres+PostGIS
-├─ DATA_MODEL.md
-├─ PROJECT_DESCRIPTION.md
-├─ ROADMAP.md
-└─ README.md
+├─ api/                 # FastAPI service (auth, admin, scans, ingest)
+│  ├─ app/              # Application modules
+│  ├─ tests/            # Pytest suite (auth/admin/scans/webhooks/S3)
+│  └─ requirements.txt
+├─ web/                 # Next.js 14 (App Router + Tailwind)
+│  ├─ app/              # Dashboard routes (admin/technician/farmer stubs)
+│  └─ lib/              # API client utilities
+├─ scripts/             # Helper scripts (dev.sh to launch stack)
+├─ docker-compose.yml   # Postgres 15 + PostGIS (local dev)
+└─ *.md                 # Project documentation
+```
 
-## Prereqs
-- Docker & Docker Compose
+## Getting started
+
+### Prerequisites
+
 - Python 3.11+
-- Node 20 LTS + `pnpm`
-- WSL2 (if on Windows)
+- Node.js 20 LTS with `pnpm`
+- Docker (recommended for Postgres/PostGIS)
+- GNU Make or Bash-compatible shell (for `scripts/dev.sh`)
 
-## Quick Start (Dev)
+### Option A: One-command dev stack
 
-### 1) One command
 ```bash
 ./scripts/dev.sh
 ```
-** This will: **
-Start Postgres container, wait until ready
-Ensure DB exists and PostGIS is enabled
-Activate API venv (create if missing) and install deps (if needed)
-Export api/.env and run alembic upgrade head
-Launch Uvicorn (API) and Next.js dev server (Web)
 
-### 2) URLs
+The script provisions Postgres with PostGIS, applies Alembic migrations, boots the FastAPI server, and starts the Next.js dev server on port 3000.
 
-API docs: http://localhost:8000/docs
+### Option B: Manual setup
 
-Web app: http://localhost:3000
+```bash
+# 1. Database
+docker compose up -d db
 
-### 3) Create first admin
+# 2. API service
+cd api
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# 3. Web app
+cd ../web
+pnpm install
+echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" > .env.local
+pnpm dev
+```
+
+Register the first user to seed an admin:
+
 ```bash
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"StrongPass!123"}'
 ```
-The first user becomes admin automatically.
 
-## Environment Variables
-api/.env
+### Environment variables
+
+`api/.env`
+
 ```
-# If absent, dev.sh injects a sensible default for dev
 DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
 JWT_SECRET=change_me
 HMAC_SECRET=change_me
 CORS_ORIGINS=http://localhost:3000
 ```
 
-web/.env.local
+`web/.env.local`
+
 ```
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
 
-## Key Endpoints
-POST /auth/register — Register user (first user = admin)
-POST /auth/login — JWT auth
-GET /me — Current user
-GET/POST /admin/farms
-GET/POST /admin/devices
-POST /ingest/webhook — S3 notifications (HMAC-signed)
-GET /healthz — Health check
+## API highlights
 
-## 🛠 Stack
+- Auth & RBAC (`/auth`, `/me`)
+- Admin management for users, farms, and devices (`/admin/*`)
+- Scan browsing, detail views, and stats (`/scans`) with presigned URLs via `app/s3_utils.py`
+- HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
+- Health & readiness probes (`/healthz`, `/readyz`)
 
-- **Frontend**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **Backend**: FastAPI + SQLAlchemy + Alembic + PostGIS
-- **Database**: PostgreSQL 15 + PostGIS
-- **Auth**: JWT with RBAC (admin/technician/farmer)
-- **AWS**: S3, EventBridge, Lambda, Secrets Manager
+## Running tests
 
-## 🚀 Quick Start
+The backend test suite exercises auth, admin, scans, webhook flows, and S3 helpers (61 tests across `tests/`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
 
-### Prerequisites
-
-- Docker & Docker Compose
-- Python 3.11+ 
-- Node.js 20 LTS + pnpm
-- Git
-
-### 1. Start Database
-
-\`\`\`bash
-docker compose up -d db
-\`\`\`
-
-### 2. Set Up API
-
-\`\`\`bash
-cd api
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run migrations to create all tables
-alembic upgrade head
-
-# Start the API server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-\`\`\`
-
-API available at http://localhost:8000/docs
-
-**⚠️ Important:** Always run `alembic upgrade head` before starting the API server to ensure the database schema is up to date.
-
-### 3. Create Admin User
-
-\`\`\`bash
-curl -X POST http://localhost:8000/auth/register \\
-  -H "Content-Type: application/json" \\
-  -d '{"email": "admin@example.com", "password": "StrongPass!123"}'
-\`\`\`
-
-First user automatically becomes admin.
-
-### 4. Set Up Dashboard (Optional)
-
-\`\`\`bash
-cd web
-pnpm install
-echo "NEXT_PUBLIC_API_BASE=http://localhost:8000" > .env.local
-pnpm dev
-\`\`\`
-
-Dashboard at http://localhost:3000
-
-## 🧪 Running Tests
-
-\`\`\`bash
+```bash
 cd api
 source .venv/bin/activate
-
-# Run all tests with coverage report
 pytest --cov=app --cov-report=term-missing
+```
+
+`pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres service the suite passes and typically reports coverage in the low 90s. See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
+
+## Project status snapshot
+
+✅ **Backend foundations**
+- Alembic-backed schema covering auth, farms/devices, scans/assets/events, and grading scaffolding
+- Auth + role enforcement with admin-only management APIs and comprehensive unit/integration tests in `tests/`
+- Ingest webhook with JSON Schema validation, HMAC window enforcement, idempotency, and logging
+- Scan listing/detail/statistics endpoints returning presigned URLs for assets
+
+🚧 **Work in progress**
+- Frontend dashboards beyond admin stubs (technician/farmer flows and scan viewers)
+- AWS infrastructure wiring (EventBridge rule, Lambda signer, DLQ replay)
+- Automated provisioning of environment secrets and TLS termination
+
+🛣️ **Next milestones** (see ROADMAP for detail)
+- Flesh out scan viewer, grading insights, and farmer reporting in the Next.js app
+- Stand up worker pipeline for grading results and overlays
+- Implement observability, lifecycle policies, and CI/CD deploy automation
 
 # Run specific test files
 pytest tests/test_auth.py
@@ -248,11 +220,13 @@ DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
 JWT_SECRET=your_secret_here
 HMAC_SECRET=your_secret_here
 CORS_ORIGINS=http://localhost:3000
+## Security posture
 
-# Web
-NEXT_PUBLIC_API_BASE=http://localhost:8000
-\`\`\`
+- JWT auth with bcrypt hashing and expiry windows
+- HMAC-signed webhooks with timestamp drift enforcement
+- Strict CORS configuration derived from `CORS_ORIGINS` env var
+- Role checks for admin surfaces in both API and dashboard routes
 
-## 📄 License
+## License
 
-[Specify your license]
+Specify project license before release.
