@@ -1,15 +1,15 @@
 # CTI Platform — Master Roadmap with Checklists
 **Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard  
 **Repo:** `Mkh23/cti-dashboard` • **Region:** `ca-central-1` • **Dev bucket:** `cti-dev-406214277746`  
-**Last updated:** 2025-10-02
+**Last updated:** 2025-10-05
 
 ---
 
 ## 0) High-Level Objectives
 - [x] Define end-to-end data flow and security boundaries
 - [x] Lock region, bucket, and S3 prefix policy for `dev`
-- [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete, AWS integration pending)
-- [x] Provide a role-based dashboard with scan viewing, grading, and reporting (backend APIs complete with 92.93% test coverage, frontend UI in progress)
+- [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete; AWS wiring pending)
+- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (admin flows scaffolded; technician/farmer UX and grading views outstanding)
 - [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
 ## 1) Environments & Infra
@@ -93,7 +93,7 @@
 ## 4) `meta.json` Validation (Schema v1.0.0)
 - [x] Adopt `meta_version: "1.0.0"` and validate via JSON Schema at webhook
 - [x] Store schema at `api/app/schemas/meta_v1.json` and reference in README
-- [ ] Unit tests for required/optional fields and error messages
+- [x] Unit tests for required/optional fields and error messages
 - [x] Forward-compat plan: only additive optional fields until v2
 
 **Required keys (recap):** `meta_version, device_code, capture_id, captured_at, image_sha256, files{image_relpath}, probe, firmware`  
@@ -286,9 +286,9 @@
 - [x] Unit: Webhook HMAC signature validation, timestamp checks ✅
 - [x] Integration: Schema validation, idempotency tests ✅
 - [x] Unit: S3 presigned URL generation (100% coverage) ✅
-- [x] Integration: Scans management with role-based access (95% coverage) ✅
+- [x] Integration: Scans management with role-based access (see `tests/test_scans.py`) ✅
 - [x] Integration: Complete webhook → DB → signed URL path ✅
-- [x] **Test coverage: 92.93%** (significantly exceeds 80% target!) ✅
+- [x] Coverage gate at 70% (pytest `--cov-fail-under=70`); latest local run >80% ✅
 - [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys
 - [ ] Load: burst uploads to webhook
 - [ ] Security: comprehensive signature tamper & replay tests
@@ -317,7 +317,7 @@
 - [x] Scans API with role-based filtering and statistics ✅
 - [ ] S3 policy/prefixes; EventBridge rule
 - [ ] Lambda signer; retries; DLQ
-**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend complete with 92.93% test coverage, AWS integration pending)
+**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend logic + tests complete; AWS integration pending)
 
 ### Phase D — Dashboard MVP
 - [ ] Technician: Scans list + detail (ImageViewer + mask), actions
