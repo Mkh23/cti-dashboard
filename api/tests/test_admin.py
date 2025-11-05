@@ -79,6 +79,7 @@ def test_list_users_as_admin(client, admin_token):
     users = response.json()
     assert isinstance(users, list)
     assert len(users) >= 1  # At least the admin user
+    assert "full_name" in users[0]
 
 
 def test_list_users_as_technician_forbidden(client, tech_token):
@@ -108,6 +109,7 @@ def test_update_user_roles_as_admin(client, admin_token, technician_user):
     data = response.json()
     assert "technician" in data["roles"]
     assert "farmer" in data["roles"]
+    assert "full_name" in data
 
 
 def test_update_user_roles_invalid_role(client, admin_token, technician_user):

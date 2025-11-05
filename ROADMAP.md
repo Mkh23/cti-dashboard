@@ -213,6 +213,7 @@
 ### 8.1 Pages
 - [x] Auth: login/register/reset; `/me` hydration; role redirect
 - [x] Admin: Users, Farms (map pending), Devices (registry + telemetry)
+- [x] Admin users page surfaces name/email and supports in-app role assignment
 - [x] Profile Management: All roles can update profile info and change password
 - [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
