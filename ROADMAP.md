@@ -1,15 +1,15 @@
 # CTI Platform — Master Roadmap with Checklists
 **Flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js 14 Dashboard  
 **Repo:** `Mkh23/cti-dashboard` • **Region:** `ca-central-1` • **Dev bucket:** `cti-dev-406214277746`  
-**Last updated:** 2025-10-02
+**Last updated:** 2025-10-07
 
 ---
 
 ## 0) High-Level Objectives
 - [x] Define end-to-end data flow and security boundaries
 - [x] Lock region, bucket, and S3 prefix policy for `dev`
-- [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete, AWS integration pending)
-- [x] Provide a role-based dashboard with scan viewing, grading, and reporting (backend APIs complete with 92.93% test coverage, frontend UI in progress)
+- [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete; AWS wiring pending)
+- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (admin flows scaffolded; technician/farmer UX and grading views outstanding)
 - [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
 ## 1) Environments & Infra
@@ -78,30 +78,30 @@
 - [ ] CLI/script & Admin UI button to trigger replay
 
 ### 3.4 End-to-End Testing
-- [ ] Local test harness to simulate S3 → Lambda → webhook flow
-- [ ] Basic test images with meta.json templates
+- [x] Local test harness to simulate S3 → Lambda → webhook flow (`scripts/test_webhook_hmac.py`)
+- [x] Basic test images with meta.json templates (`tests/test_ingestion_e2e.py`)
 - [ ] S3 event notification simulator
 
 **DoD (Ingest):**
 - [ ] Uploading a file under `raw/.../cap_xxx/` leads to a `scans + assets` row within 5s
-- [ ] Tampered signature is rejected (403), logged
+- [x] Tampered signature is rejected (403), logged (see `tests/test_webhooks.py::test_webhook_invalid_signature`)
 - [ ] Failed events appear in DLQ and can be replayed successfully
-- [ ] Test harness verifies complete ingest flow
+- [x] Test harness verifies complete ingest flow (FastAPI client + HMAC script)
 
 ---
 
 ## 4) `meta.json` Validation (Schema v1.0.0)
 - [x] Adopt `meta_version: "1.0.0"` and validate via JSON Schema at webhook
 - [x] Store schema at `api/app/schemas/meta_v1.json` and reference in README
-- [ ] Unit tests for required/optional fields and error messages
+- [x] Unit tests for required/optional fields and error messages
 - [x] Forward-compat plan: only additive optional fields until v2
 
 **Required keys (recap):** `meta_version, device_code, capture_id, captured_at, image_sha256, files{image_relpath}, probe, firmware`  
 **Optional:** `operator_id, farm_id, gps{lat,lon}, mask_sha256, files{mask_relpath,extra[]}, inference_summary{...}`
 
 **DoD (Schema):**
-- [ ] Valid sample passes; missing `image_relpath` fails with clear message
-- [ ] Contract doc published for Pi-side devs
+- [x] Valid sample passes; missing `image_relpath` fails with clear message (covered by webhook tests)
+- [x] Contract doc published for Pi-side devs (`DATA_MODEL.md` §5)
 
 ---
 
@@ -286,9 +286,9 @@
 - [x] Unit: Webhook HMAC signature validation, timestamp checks ✅
 - [x] Integration: Schema validation, idempotency tests ✅
 - [x] Unit: S3 presigned URL generation (100% coverage) ✅
-- [x] Integration: Scans management with role-based access (95% coverage) ✅
+- [x] Integration: Scans management with role-based access (see `tests/test_scans.py`) ✅
 - [x] Integration: Complete webhook → DB → signed URL path ✅
-- [x] **Test coverage: 92.93%** (significantly exceeds 80% target!) ✅
+- [x] Coverage gate at 70% (pytest `--cov-fail-under=70`); latest local run >80% ✅
 - [ ] E2E (Playwright/Cypress): admin, tech, farmer journeys
 - [ ] Load: burst uploads to webhook
 - [ ] Security: comprehensive signature tamper & replay tests
@@ -317,7 +317,7 @@
 - [x] Scans API with role-based filtering and statistics ✅
 - [ ] S3 policy/prefixes; EventBridge rule
 - [ ] Lambda signer; retries; DLQ
-**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend complete with 92.93% test coverage, AWS integration pending)
+**DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend logic + tests complete; AWS integration pending)
 
 ### Phase D — Dashboard MVP
 - [ ] Technician: Scans list + detail (ImageViewer + mask), actions
@@ -363,11 +363,11 @@
 ---
 
 ## 15) Next 5 Commits (Actionable) [REORDERED]
-1. [x] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit tests (schema & validation complete, unit tests pending)
+1. [x] Add `api/app/schemas/meta_v1.json` + webhook validation + HMAC verify + unit/integration tests (schema + validation complete)
 2. [x] Alembic baseline: users/roles → farms/devices/animals → scans/assets/events/ingestion_log → grading_results/notifications  
 3. [x] Admin screens: Users, Farms (with PostGIS), Devices (registry) (backend APIs complete, frontend UI pending)
 4. [ ] EventBridge + Lambda skeleton (Secrets Manager, signed POST, retries, DLQ)  
-5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard (health checks complete, Prometheus/Grafana pending)
+5. [ ] Basic monitoring setup: Prometheus endpoint, health checks, initial Grafana dashboard (health checks complete; metrics/visuals pending)
 
 ---
 

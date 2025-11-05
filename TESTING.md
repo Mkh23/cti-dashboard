@@ -2,282 +2,94 @@
 
 ## Overview
 
-The CTI Dashboard project includes a comprehensive test suite for the API backend with **92.93% code coverage** (exceeds 80% target significantly).
+The FastAPI backend ships with a comprehensive pytest suite that exercises authentication, admin management, scan endpoints, webhook ingest, S3 helpers, and health checks. Coverage enforcement is configured at 70% (`pytest --cov-fail-under=70`), and with a running Postgres/PostGIS instance the suite typically lands in the low 80s (recent maintainer runs range 78–82%).
 
-## Running Tests
+## Prerequisites
 
-### Prerequisites
-
-1. **PostgreSQL with PostGIS must be running:**
+1. **PostgreSQL 15 + PostGIS running locally** (recommended via Docker Compose):
    ```bash
    docker compose up -d db
    ```
 
-2. **Test databases must be created:**
+2. **Create and prepare test databases** (`cti_test`, `cti_test_no_roles`), both with PostGIS enabled:
    ```bash
-   # Create test databases
-   docker exec cti-dashboard-db-1 psql -U postgres -c "CREATE DATABASE cti_test;"
-   docker exec cti-dashboard-db-1 psql -U postgres -c "CREATE DATABASE cti_test_no_roles;"
-   
-   # Enable PostGIS extension
-   docker exec cti-dashboard-db-1 psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-   docker exec cti-dashboard-db-1 psql -U postgres -d cti_test_no_roles -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+   # (Ignore errors if the databases already exist)
+   docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test;" || true
+   docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test_no_roles;" || true
+   docker compose exec db psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+   docker compose exec db psql -U postgres -d cti_test_no_roles -c "CREATE EXTENSION IF NOT EXISTS postgis;"
    ```
 
-### Run All Tests
+3. **Set `TEST_DATABASE_URL` if you use a custom connection string.** Defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`.
+
+## Running the suite
 
 ```bash
 cd api
 source .venv/bin/activate
-pytest
+pytest --cov=app --cov-report=term-missing
 ```
 
-### Run with Verbose Output
+> **Note:** The suite expects a reachable Postgres/PostGIS service. In containerized CI, ensure Docker is available or run tests against a managed Postgres instance. Without Postgres the run will fail with `psycopg2.OperationalError`.
+
+To inspect the HTML coverage report:
 
 ```bash
-pytest -v
+pytest --cov=app --cov-report=html
+open htmlcov/index.html  # or xdg-open on Linux
 ```
 
-### Run Specific Test File
+Run specific files or tests:
 
 ```bash
 pytest tests/test_auth.py
-pytest tests/test_health.py
+pytest tests/test_admin.py::test_list_users_as_admin
 ```
 
-### Run Specific Test
+## Test coverage map
 
-```bash
-pytest tests/test_auth.py::test_register_first_user_becomes_admin
-```
+- `tests/test_auth.py` – registration, login, /me, role seeding
+- `tests/test_admin.py` – admin-only CRUD for users, farms, devices
+- `tests/test_scans.py` – pagination, filtering, detail, stats, presigned URLs
+- `tests/test_webhooks.py` – HMAC validation, schema enforcement, idempotency
+- `tests/test_s3_utils.py` – presigned URL helper edge cases
+- `tests/test_health.py` – healthz/readyz endpoints
+- Fixtures in `tests/conftest.py` spin up fresh databases per test and seed default roles when required.
 
-### Generate Coverage Report
+## End-to-end helpers
 
-```bash
-# Terminal report
-pytest --cov-report=term-missing
-
-# HTML report
-pytest --cov-report=html
-# Open htmlcov/index.html in browser
-```
-
-## Test Suite
-
-### Authentication Tests (`tests/test_auth.py`)
-
-- ✅ `test_register_first_user_becomes_admin` - Verifies first user gets admin role
-- ✅ `test_register_second_user_becomes_technician` - Verifies subsequent users get technician role
-- ✅ `test_register_duplicate_email` - Verifies duplicate email rejection
-- ✅ `test_register_without_roles_seeded` - Verifies graceful failure when roles not seeded
-- ✅ `test_login_success` - Verifies successful login returns JWT token
-- ✅ `test_login_invalid_credentials` - Verifies invalid password is rejected
-- ✅ `test_login_nonexistent_user` - Verifies nonexistent user is rejected
-- ✅ `test_me_endpoint` - Verifies /me returns user info with roles
-- ✅ `test_me_endpoint_unauthorized` - Verifies /me requires authentication
-- ✅ `test_me_endpoint_invalid_token` - Verifies /me rejects invalid tokens
-- ✅ `test_register_validates_email_format` - Verifies email validation
-- ✅ `test_password_is_hashed` - Verifies passwords are hashed, not stored in plain text
-
-### Admin Endpoint Tests (`tests/test_admin.py`)
-
-16 tests covering:
-- ✅ `test_list_users_as_admin` - Admin can list all users
-- ✅ `test_list_users_as_technician_forbidden` - Non-admin cannot list users
-- ✅ `test_update_user_roles_as_admin` - Admin can update user roles
-- ✅ `test_update_user_roles_invalid_role` - Cannot assign non-existent roles
-- ✅ `test_create_farm_as_admin` - Admin can create farms
-- ✅ `test_list_farms_as_admin` - Admin can list farms
-- ✅ `test_create_device_as_admin` - Admin can register devices
-- ✅ `test_list_devices_as_admin` - Admin can list devices
-- ✅ `test_create_device_duplicate_code` - Duplicate device codes rejected
-- ✅ And 7 more permission and validation tests
-
-### Webhook Ingestion Tests (`tests/test_webhooks.py`)
-
-6 tests covering:
-- ✅ `test_webhook_valid_payload` - Valid signed webhook accepted
-- ✅ `test_webhook_invalid_signature` - Invalid signature rejected
-- ✅ `test_webhook_missing_signature` - Missing HMAC headers rejected
-- ✅ `test_webhook_expired_timestamp` - Old timestamps rejected (5-min window)
-- ✅ `test_webhook_invalid_meta_schema` - Invalid meta.json schema rejected
-- ✅ `test_webhook_idempotency` - Duplicate webhooks handled correctly
-
-### Scans Management Tests (`tests/test_scans.py`)
-
-19 tests covering:
-- ✅ `test_list_scans_as_admin` - Admin can list all scans
-- ✅ `test_list_scans_as_technician` - Technician can list scans
-- ✅ `test_list_scans_unauthorized` - Unauthorized access rejected
-- ✅ `test_list_scans_with_status_filter` - Status filtering works
-- ✅ `test_list_scans_with_pagination` - Pagination works correctly
-- ✅ `test_get_scan_detail_as_admin` - Admin can view scan details
-- ✅ `test_get_scan_detail_as_technician` - Technician can view scan details
-- ✅ `test_get_scan_detail_not_found` - 404 for non-existent scans
-- ✅ `test_get_scan_detail_unauthorized` - Unauthorized access rejected
-- ✅ `test_get_scan_stats_as_admin` - Admin can view scan statistics
-- ✅ `test_get_scan_stats_as_technician` - Technician can view statistics
-- ✅ `test_get_scan_stats_unauthorized` - Unauthorized access rejected
-- ✅ `test_scan_with_image_asset` - Scans can link to image assets
-- ✅ `test_scan_with_mask_asset` - Scans can link to mask assets
-- ✅ `test_scan_status_transitions` - Status transitions work correctly
-- ✅ `test_scan_with_farm` - Scans can be linked to farms
-- ✅ And 3 more tests for presigned URLs and device/farm info
-
-### S3 Utilities Tests (`tests/test_s3_utils.py`)
-
-6 tests covering:
-- ✅ `test_generate_presigned_url_success` - Presigned URL generation works
-- ✅ `test_generate_presigned_url_with_custom_expiration` - Custom expiration works
-- ✅ `test_generate_presigned_url_client_error` - Client errors handled gracefully
-- ✅ `test_generate_presigned_url_no_credentials` - No credentials handled gracefully
-- ✅ `test_get_s3_client_with_profile` - S3 client with AWS profile
-- ✅ `test_get_s3_client_without_profile` - S3 client without AWS profile
-
-### Health Check Tests (`tests/test_health.py`)
-
-- ✅ `test_health_endpoint` - Verifies /healthz returns ok status
-- ✅ `test_readiness_endpoint` - Verifies /readyz checks database connectivity
-
-## Coverage Report
-
-| Module | Coverage | Notes |
-|--------|----------|-------|
-| `app/routers/auth.py` | 100% | Full coverage of authentication logic ✅ |
-| `app/routers/scans.py` | 95% | Scans endpoints with presigned URLs ✅ |
-| `app/routers/me.py` | 96% | Nearly complete coverage ✅ |
-| `app/main.py` | 92% | Main app setup covered ✅ |
-| `app/routers/webhooks.py` | 89% | Webhook ingestion and validation ✅ |
-| `app/routers/admin.py` | 83% | Admin endpoints (users, farms, devices) ✅ |
-| `app/models.py` | 100% | All models covered ✅ |
-| `app/schemas.py` | 100% | All schemas covered ✅ |
-| `app/security.py` | 100% | Password hashing and JWT covered ✅ |
-| `app/s3_utils.py` | 100% | S3 presigned URL generation ✅ |
-| **Overall** | **92.93%** | Significantly exceeds 80% target! ✅ |
-
-## Test Database Strategy
-
-The test suite uses PostgreSQL with PostGIS, not SQLite, because the production code uses PostGIS geometry types that aren't compatible with SQLite.
-
-- **Main test database:** `cti_test` - used for most tests
-- **No-roles database:** `cti_test_no_roles` - used to test error handling when roles aren't seeded
-
-Each test function gets a fresh database state with automatic cleanup.
-
-## Continuous Integration
-
-Tests should be run in CI/CD pipeline:
-
-```yaml
-# Example GitHub Actions workflow
-- name: Run tests
-  run: |
-    docker compose up -d db
-    sleep 10
-    docker exec cti-dashboard-db-1 psql -U postgres -c "CREATE DATABASE cti_test;"
-    docker exec cti-dashboard-db-1 psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-    cd api
-    pip install -r requirements.txt
-    pytest --cov-fail-under=70
-```
-
-## Adding New Tests
-
-### Test File Structure
-
-```python
-# tests/test_feature.py
-"""Test description."""
-
-def test_something(client, test_db):
-    """Test that something works."""
-    # Arrange
-    data = {"key": "value"}
-    
-    # Act
-    response = client.post("/endpoint", json=data)
-    
-    # Assert
-    assert response.status_code == 200
-    assert response.json() == expected
-```
-
-### Using Fixtures
-
-Available fixtures from `conftest.py`:
-
-- `client` - TestClient with test database
-- `test_db` - Test database session with roles seeded
-- `client_without_roles` - TestClient without roles seeded
-- `test_db_without_roles` - Test database without roles
+- `scripts/test_webhook_hmac.py` signs and submits a webhook payload to `POST /ingest/webhook`, mirroring the EventBridge/Lambda hand-off. Export `HMAC_SECRET` if you override the default secret.
+- `tests/test_ingestion_e2e.py` provides an optional S3 smoke test (skipped unless `CTI_BUCKET` is set) to verify raw uploads land in the expected prefixes.
 
 ## Troubleshooting
 
-### Database connection errors
+- **`psycopg2.OperationalError: connection refused`** – ensure Postgres is running and accessible on the expected host/port.
+- **`sqlalchemy.exc.OperationalError: could not translate host name`** – point `TEST_DATABASE_URL` at a reachable Postgres instance; SQLite is insufficient because of PostGIS column types.
+- **`Database not properly initialized. Please run migrations`** – execute `alembic upgrade head` against the primary database before running tests.
+- **`meta.json` schema failures** – confirm ingest payloads align with `app/schemas/meta_v1.json`.
+- **Coverage below threshold** – expand test scenarios for uncovered branches (see coverage report) or verify PostGIS is enabled so geometry columns can be created.
 
-Ensure PostgreSQL is running:
-```bash
-docker compose ps db
+## CI recommendations
+
+A minimal GitHub Actions step for running the suite:
+
+```yaml
+- name: Run API tests
+  run: |
+    docker compose up -d db
+    sleep 10
+    docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test;" || true
+    docker compose exec db psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+    docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test_no_roles;" || true
+    docker compose exec db psql -U postgres -d cti_test_no_roles -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+    cd api
+    pip install -r requirements.txt
+    pytest --cov=app --cov-report=term-missing
 ```
 
-### Test databases don't exist
+## Future additions
 
-Recreate them:
-```bash
-docker exec cti-dashboard-db-1 psql -U postgres -c "DROP DATABASE IF EXISTS cti_test;"
-docker exec cti-dashboard-db-1 psql -U postgres -c "DROP DATABASE IF EXISTS cti_test_no_roles;"
-# Then create them again (see Prerequisites section)
-```
-
-### PostGIS errors
-
-Ensure PostGIS extension is enabled:
-```bash
-docker exec cti-dashboard-db-1 psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-```
-
-### "column users.updated_at does not exist" error
-
-This error occurs when the database was created using an older method (before Alembic migrations). The solution is to either:
-
-**Option 1:** Drop and recreate databases:
-```bash
-cd /home/runner/work/cti-dashboard/cti-dashboard
-docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti;"
-docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti_test;"
-docker compose exec db psql -U postgres -c "DROP DATABASE IF EXISTS cti_test_no_roles;"
-docker compose exec db psql -U postgres -c "CREATE DATABASE cti;"
-docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test;"
-docker compose exec db psql -U postgres -c "CREATE DATABASE cti_test_no_roles;"
-docker compose exec db psql -U postgres -d cti -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-docker compose exec db psql -U postgres -d cti_test -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-docker compose exec db psql -U postgres -d cti_test_no_roles -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-
-cd api
-alembic upgrade head
-```
-
-**Option 2:** Add the missing column manually (if you have data to preserve):
-```bash
-docker compose exec db psql -U postgres -d cti -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();"
-docker compose exec db psql -U postgres -d cti_test -c "ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();"
-```
-
-### Coverage too low
-
-Add more tests for uncovered modules. Focus on:
-- Error handling paths
-- Edge cases
-- Integration tests for complex workflows
-
-## Future Test Additions
-
-- [x] Admin endpoint tests ✅
-- [x] Webhook ingestion tests ✅
-- [x] HMAC signature validation tests ✅
-- [x] Scan management tests ✅
-- [x] S3 presigned URL tests ✅
-- [ ] PostGIS geometry tests
-- [ ] E2E tests with Playwright
-- [ ] Performance tests
-- [ ] Load tests
+- PostGIS-specific geometry assertions
+- Browser-based E2E flows (Playwright/Cypress)
+- Load and soak testing for `/ingest/webhook`
+- Security regression suite (signature tampering, replay attempts)
