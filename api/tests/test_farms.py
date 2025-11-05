@@ -36,6 +36,10 @@ def farmer_user(test_db):
 def technician_user(test_db):
     return _create_user_with_role(test_db, "tech-farms@test.com", "technician")
 
+@pytest.fixture
+def another_farmer_user(test_db):
+    return _create_user_with_role(test_db, "farmer-two@test.com", "farmer")
+
 
 @pytest.fixture
 def admin_token(client, admin_user):
@@ -201,3 +205,164 @@ def test_technician_cannot_view_other_farm(
     )
     assert detail_resp.status_code == 403
 
+
+def test_admin_can_add_technician_to_management_group(
+    client,
+    admin_token,
+    farmer_user,
+    technician_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Managed Farm", "owner_ids": [str(farmer_user.id)]},
+    )
+    assert create_resp.status_code == 200
+    farm_id = create_resp.json()["id"]
+
+    add_resp = client.post(
+        f"/farms/{farm_id}/members",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"user_id": str(technician_user.id)},
+    )
+    assert add_resp.status_code == 200
+    members = add_resp.json()["members"]
+    assert any(member["user_id"] == str(technician_user.id) for member in members)
+    technician_entry = next(
+        member for member in members if member["user_id"] == str(technician_user.id)
+    )
+    assert technician_entry["is_owner"] is False
+    assert "technician" in technician_entry["roles"]
+
+
+def test_farmer_can_add_technician_by_email(
+    client,
+    farmer_token,
+    farmer_user,
+    technician_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"name": "Farmer Farm"},
+    )
+    assert create_resp.status_code == 200
+    farm_id = create_resp.json()["id"]
+
+    add_resp = client.post(
+        f"/farms/{farm_id}/members",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"email": technician_user.email},
+    )
+    assert add_resp.status_code == 200
+    members = add_resp.json()["members"]
+    assert any(member["user_id"] == str(technician_user.id) for member in members)
+    technician_entry = next(
+        member for member in members if member["user_id"] == str(technician_user.id)
+    )
+    assert technician_entry["is_owner"] is False
+
+
+def test_farmer_cannot_add_farmer_to_management_group(
+    client,
+    farmer_token,
+    farmer_user,
+    another_farmer_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"name": "Primary Farm"},
+    )
+    assert create_resp.status_code == 200
+    farm_id = create_resp.json()["id"]
+
+    add_resp = client.post(
+        f"/farms/{farm_id}/members",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"user_id": str(another_farmer_user.id)},
+    )
+    assert add_resp.status_code == 403
+
+
+def test_farmer_can_remove_technician_but_not_owner(
+    client,
+    farmer_token,
+    farmer_user,
+    technician_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"name": "Removal Farm"},
+    )
+    farm_id = create_resp.json()["id"]
+
+    add_resp = client.post(
+        f"/farms/{farm_id}/members",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"user_id": str(technician_user.id)},
+    )
+    assert add_resp.status_code == 200
+
+    remove_tech = client.delete(
+        f"/farms/{farm_id}/members/{str(technician_user.id)}",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+    )
+    assert remove_tech.status_code == 200
+    assert all(
+        member["user_id"] != str(technician_user.id)
+        for member in remove_tech.json()["members"]
+    )
+
+    remove_owner = client.delete(
+        f"/farms/{farm_id}/members/{str(farmer_user.id)}",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+    )
+    assert remove_owner.status_code == 403
+
+
+def test_admin_cannot_remove_last_owner(
+    client,
+    admin_token,
+    farmer_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Owner Farm", "owner_ids": [str(farmer_user.id)]},
+    )
+    farm_id = create_resp.json()["id"]
+
+    remove_resp = client.delete(
+        f"/farms/{farm_id}/members/{str(farmer_user.id)}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert remove_resp.status_code == 400
+
+
+def test_admin_adds_farmer_becomes_owner(
+    client,
+    admin_token,
+    farmer_user,
+    another_farmer_user,
+):
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Shared Owners", "owner_ids": [str(farmer_user.id)]},
+    )
+    farm_id = create_resp.json()["id"]
+
+    add_resp = client.post(
+        f"/farms/{farm_id}/members",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"user_id": str(another_farmer_user.id)},
+    )
+    assert add_resp.status_code == 200
+    members = add_resp.json()["members"]
+    new_owner = next(
+        member for member in members if member["user_id"] == str(another_farmer_user.id)
+    )
+    assert new_owner["is_owner"] is True
+    assert "farmer" in new_owner["roles"]

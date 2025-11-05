@@ -63,6 +63,8 @@ CORS_ORIGINS=http://localhost:3000
 - `GET /farms` - List farms scoped to the authenticated user (admins see all)
 - `POST /farms` - Create a farm (admins, technicians, and farmers)
 - `GET/PUT /farms/{farm_id}` - View/update farms the caller owns; admins can update anyone's farm
+- `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
+- `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role restrictions
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers

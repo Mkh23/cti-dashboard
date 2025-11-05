@@ -176,12 +176,21 @@ export type FarmOwner = {
   full_name?: string | null;
 };
 
+export type FarmMember = {
+  user_id: string;
+  email: string;
+  full_name?: string | null;
+  roles: string[];
+  is_owner: boolean;
+};
+
 export type Farm = {
   id: string;
   name: string;
   created_at: string;
   updated_at: string;
   owners: FarmOwner[];
+  members: FarmMember[];
   can_edit: boolean;
 };
 
@@ -257,6 +266,42 @@ export async function updateFarm(
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(txt || "Failed to update farm");
+  }
+  return res.json() as Promise<Farm>;
+}
+
+export async function addFarmMember(
+  token: string,
+  farmId: string,
+  data: { user_id?: string; email?: string }
+) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}/members`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to add member");
+  }
+  return res.json() as Promise<Farm>;
+}
+
+export async function removeFarmMember(
+  token: string,
+  farmId: string,
+  userId: string
+) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}/members/${userId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to remove member");
   }
   return res.json() as Promise<Farm>;
 }

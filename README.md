@@ -95,6 +95,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Auth & RBAC (`/auth`, `/me`)
 - Admin management for users and devices (`/admin/*`)
 - Role-aware farm APIs (`/farms`) so admins can view all farms while technicians and farmers manage only their own
+- Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, and stats (`/scans`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
@@ -104,6 +105,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 
 - Admin users page shows each person's name, email, and lets admins toggle roles with immediate API persistence
 - Shared farm manager page for admins, technicians, and farmers with create/view/edit flows respecting ownership
+- Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
 
 ## Running tests
 
@@ -172,6 +174,8 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - `GET /farms` - List farms available to the current user (admins see all)
 - `POST /farms` - Create a farm (admins, technicians, and farmers)
 - `GET/PUT /farms/{farm_id}` - View or update farms you own; admins can update any farm
+- `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
+- `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role guardrails
 
 ### Scans
 - `GET /scans` - List scans with filtering and pagination (authenticated)

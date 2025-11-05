@@ -216,6 +216,7 @@
 - [x] Admin: Users, Farms (map pending), Devices (registry + telemetry)
 - [x] Admin users page surfaces name/email and supports in-app role assignment
 - [x] Profile Management: All roles can update profile info and change password
+- [x] Farm detail surfaces management roster with admin/farmer add-remove flows
 - [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
