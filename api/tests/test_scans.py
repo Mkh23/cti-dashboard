@@ -1,7 +1,17 @@
 """Test scans management endpoints."""
 import pytest
 from datetime import datetime
-from app.models import User, Role, UserRole, Device, Scan, ScanStatus, Asset, Farm
+from app.models import (
+    User,
+    Role,
+    UserRole,
+    Device,
+    Scan,
+    ScanStatus,
+    Asset,
+    Farm,
+    UserFarm,
+)
 
 
 @pytest.fixture
@@ -43,6 +53,25 @@ def technician_user(test_db):
 
 
 @pytest.fixture
+def farmer_user(test_db):
+    """Create a farmer user for testing."""
+    db = test_db()
+
+    from app.security import hash_password
+    user = User(email="farmer@scan.com", hashed_password=hash_password("password123"))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    farmer_role = db.query(Role).filter_by(name="farmer").first()
+    db.add(UserRole(user_id=user.id, role_id=farmer_role.id))
+    db.commit()
+
+    db.close()
+    return user
+
+
+@pytest.fixture
 def admin_token(client, admin_user):
     """Get JWT token for admin user."""
     response = client.post("/auth/login", data={
@@ -57,6 +86,16 @@ def tech_token(client, technician_user):
     """Get JWT token for technician user."""
     response = client.post("/auth/login", data={
         "username": "tech@scan.com",
+        "password": "password123"
+    })
+    return response.json()["access_token"]
+
+
+@pytest.fixture
+def farmer_token(client, farmer_user):
+    """Get JWT token for farmer user."""
+    response = client.post("/auth/login", data={
+        "username": "farmer@scan.com",
         "password": "password123"
     })
     return response.json()["access_token"]
@@ -81,21 +120,44 @@ def test_device(test_db):
 
 
 @pytest.fixture
-def test_scan(test_db, test_device):
-    """Create a test scan."""
+def test_scan(test_db, test_device, technician_user, farmer_user):
+    """Create a test scan tied to a farm and technician operator."""
     db = test_db()
+
+    farm = Farm(name="Scan Test Farm")
+    db.add(farm)
+    db.commit()
+    db.refresh(farm)
+
+    # Associate users with the farm
+    db.add_all(
+        [
+            UserFarm(user_id=farmer_user.id, farm_id=farm.id, is_owner=True),
+            UserFarm(user_id=technician_user.id, farm_id=farm.id, is_owner=False),
+        ]
+    )
+    db.commit()
+
+    # Attach device to farm for context
+    device = db.get(Device, test_device)
+    if device:
+        device.farm_id = farm.id
+        db.commit()
+
     scan = Scan(
         capture_id="cap_test_001",
         ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_test_001/",
         device_id=test_device,
-        status=ScanStatus.uploaded
+        farm_id=farm.id,
+        operator_id=technician_user.id,
+        status=ScanStatus.uploaded,
     )
     db.add(scan)
     db.commit()
     db.refresh(scan)
     scan_id = scan.id
     db.close()
-    
+
     return scan_id
 
 
@@ -112,7 +174,9 @@ def test_list_scans_as_admin(client, admin_token, test_scan):
     assert "scans" in data
     assert "total" in data
     assert "page" in data
-    assert len(data["scans"]) >= 1
+    assert len(data["scans"]) == 1
+    scan = data["scans"][0]
+    assert scan["latest_grading"] is None
 
 
 def test_list_scans_as_technician(client, tech_token, test_scan):
@@ -124,6 +188,58 @@ def test_list_scans_as_technician(client, tech_token, test_scan):
     assert response.status_code == 200
     data = response.json()
     assert "scans" in data
+    assert len(data["scans"]) == 1
+    assert data["scans"][0]["farm_name"] == "Scan Test Farm"
+
+
+def test_list_scans_as_farmer(client, farmer_token, test_scan):
+    """Farmer can list scans for their farms."""
+    response = client.get(
+        "/scans",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["scans"][0]["farm_name"] == "Scan Test Farm"
+
+
+def test_farmer_cannot_see_other_farm_scans(
+    client,
+    farmer_token,
+    test_db,
+    test_scan,
+):
+    """Ensure farmers do not see scans from farms they are not linked to."""
+    db = test_db()
+    other_farm = Farm(name="Hidden Farm")
+    db.add(other_farm)
+    db.commit()
+    db.refresh(other_farm)
+
+    other_device = Device(device_code="SCAN-DEV-HIDDEN", label="Hidden Device", farm_id=other_farm.id)
+    db.add(other_device)
+    db.commit()
+    db.refresh(other_device)
+
+    hidden_scan = Scan(
+        capture_id="cap_hidden",
+        ingest_key="test-bucket/raw/SCAN-DEV-HIDDEN/2025/01/01/cap_hidden/",
+        device_id=other_device.id,
+        farm_id=other_farm.id,
+        status=ScanStatus.uploaded,
+    )
+    db.add(hidden_scan)
+    db.commit()
+    db.close()
+
+    response = client.get(
+        "/scans",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
 
 
 def test_list_scans_unauthorized(client, test_scan):
@@ -170,6 +286,9 @@ def test_get_scan_detail_as_admin(client, admin_token, test_scan):
     assert str(data["id"]) == str(test_scan)
     assert "capture_id" in data
     assert "status" in data
+    assert "grading_results" in data
+    assert data["grading_results"] == []
+    assert data["latest_grading"] is None
 
 
 def test_get_scan_detail_as_technician(client, tech_token, test_scan):
@@ -179,6 +298,8 @@ def test_get_scan_detail_as_technician(client, tech_token, test_scan):
         headers={"Authorization": f"Bearer {tech_token}"}
     )
     assert response.status_code == 200
+    data = response.json()
+    assert data["grading_results"] == []
 
 
 def test_get_scan_detail_not_found(client, admin_token):
@@ -197,6 +318,41 @@ def test_get_scan_detail_unauthorized(client, test_scan):
     assert response.status_code == 401
 
 
+def test_grade_scan_as_technician(client, tech_token, test_scan):
+    """Technicians can trigger grading and receive grading results."""
+    response = client.post(
+        f"/scans/{test_scan}/grade",
+        headers={"Authorization": f"Bearer {tech_token}"},
+        json={"model_name": "demo-model", "model_version": "1.0.1", "confidence": 0.87},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "graded"
+    assert data["grading_results"]
+    latest = data["latest_grading"]
+    assert latest is not None
+    assert latest["model_name"] == "demo-model"
+    assert pytest.approx(latest["confidence"], rel=1e-3) == 0.87
+
+    list_resp = client.get(
+        "/scans",
+        headers={"Authorization": f"Bearer {tech_token}"},
+    )
+    assert list_resp.status_code == 200
+    list_data = list_resp.json()
+    assert list_data["scans"][0]["latest_grading"]["model_version"] == "1.0.1"
+
+
+def test_grade_scan_as_farmer_forbidden(client, farmer_token, test_scan):
+    """Farmers cannot trigger grading."""
+    response = client.post(
+        f"/scans/{test_scan}/grade",
+        headers={"Authorization": f"Bearer {farmer_token}"},
+        json={"model_name": "blocked"},
+    )
+    assert response.status_code == 403
+
+
 # ============ Scan Statistics Tests ============
 
 def test_get_scan_stats_as_admin(client, admin_token, test_scan):
@@ -210,6 +366,7 @@ def test_get_scan_stats_as_admin(client, admin_token, test_scan):
     assert "total" in data
     assert "by_status" in data
     assert isinstance(data["by_status"], dict)
+    assert data["total"] >= 1
 
 
 def test_get_scan_stats_as_technician(client, tech_token, test_scan):
@@ -219,6 +376,8 @@ def test_get_scan_stats_as_technician(client, tech_token, test_scan):
         headers={"Authorization": f"Bearer {tech_token}"}
     )
     assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
 
 
 def test_get_scan_stats_unauthorized(client):

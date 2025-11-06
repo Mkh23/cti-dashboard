@@ -167,6 +167,11 @@ class Scan(Base):
     operator = relationship("User")
     image_asset = relationship("Asset", foreign_keys=[image_asset_id])
     mask_asset = relationship("Asset", foreign_keys=[mask_asset_id])
+    grading_results = relationship(
+        "GradingResult",
+        back_populates="scan",
+        cascade="all, delete-orphan",
+    )
 
 
 # ============ Scan Events ============
@@ -224,7 +229,7 @@ class GradingResult(Base):
         Index("idx_grading_model_ver", "model_name", "model_version"),
     )
 
-    scan = relationship("Scan")
+    scan = relationship("Scan", back_populates="grading_results")
     creator = relationship("User")
 
 

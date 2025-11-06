@@ -65,6 +65,13 @@ CORS_ORIGINS=http://localhost:3000
 - `GET/PUT /farms/{farm_id}` - View/update farms the caller owns; admins can update anyone's farm
 - `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
 - `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role restrictions
+
+### Scans
+
+- `GET /scans` - List scans with pagination and role-aware scoping
+- `GET /scans/{scan_id}` - Retrieve scan details with presigned asset URLs and grading history
+- `GET /scans/stats` - Aggregate totals and status breakdown (role aware)
+- `POST /scans/{scan_id}/grade` - Trigger a grading record (admins & technicians)
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers
@@ -75,7 +82,7 @@ CORS_ORIGINS=http://localhost:3000
   - `me.py` – current user info via bearer token
   - `admin.py` – user/device management (admin-only)
   - `farms.py` – farm management with role-aware ownership controls
-  - `scans.py` – scan list/detail/stats and presigned URLs
+  - `scans.py` – scan list/detail/stats, grading actions, and presigned URLs
   - `webhooks.py` – signed ingest webhook with JSON schema validation
 - `app/s3_utils.py` – presigned URL helper
 - `app/schemas/meta_v1.json` – ingest contract enforced on webhook payloads

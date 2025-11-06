@@ -89,30 +89,56 @@ export async function changePassword(token: string, data: ChangePasswordData) {
 
 export type ScanStatus = "uploaded" | "ingested" | "graded" | "error";
 
-export type Scan = {
+export type LatestGrading = {
+  id?: string;
+  model_name?: string;
+  model_version?: string;
+  confidence?: number | null;
+  created_at?: string;
+};
+
+export type GradingResult = {
   id: string;
-  scan_id?: string;
-  capture_id: string;
-  ingest_key: string;
-  device_id: string;
-  farm_id?: string;
-  animal_id?: string;
-  operator_id?: string;
-  captured_at?: string;
-  status: ScanStatus;
-  image_asset_id?: string;
-  mask_asset_id?: string;
+  model_name: string;
+  model_version: string;
+  inference_sha256?: string | null;
+  confidence?: number | null;
+  confidence_breakdown?: Record<string, number>;
+  features_used?: Record<string, number>;
+  created_by?: string | null;
+  created_by_email?: string | null;
+  created_by_name?: string | null;
   created_at: string;
 };
 
+export type Scan = {
+  id: string;
+  scan_id?: string | null;
+  capture_id: string;
+  ingest_key: string;
+  device_id: string;
+  device_code?: string | null;
+  device_label?: string | null;
+  farm_id?: string | null;
+  farm_name?: string | null;
+  animal_id?: string | null;
+  operator_id?: string | null;
+  captured_at?: string | null;
+  status: ScanStatus;
+  image_asset_id?: string | null;
+  mask_asset_id?: string | null;
+  created_at: string;
+  latest_grading?: LatestGrading | null;
+};
+
 export type ScanDetail = Scan & {
-  device_code?: string;
-  device_label?: string;
-  farm_name?: string;
-  image_bucket?: string;
-  image_key?: string;
-  mask_bucket?: string;
-  mask_key?: string;
+  image_bucket?: string | null;
+  image_key?: string | null;
+  image_url?: string | null;
+  mask_bucket?: string | null;
+  mask_key?: string | null;
+  mask_url?: string | null;
+  grading_results: GradingResult[];
 };
 
 export type PaginatedScans = {
@@ -121,6 +147,21 @@ export type PaginatedScans = {
   page: number;
   per_page: number;
   total_pages: number;
+};
+
+export type ScanStats = {
+  total: number;
+  by_status: Record<string, number>;
+  recent_count: number;
+};
+
+export type GradeScanPayload = {
+  model_name: string;
+  model_version?: string;
+  inference_sha256?: string | null;
+  confidence?: number | null;
+  confidence_breakdown?: Record<string, number>;
+  features_used?: Record<string, number>;
 };
 
 export async function listScans(
@@ -164,6 +205,38 @@ export async function getScan(token: string, scanId: string) {
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(txt || "Failed to fetch scan");
+  }
+  return res.json() as Promise<ScanDetail>;
+}
+
+export async function getScanStats(token: string) {
+  const res = await fetch(`${API_BASE}/scans/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch scan statistics");
+  }
+  return res.json() as Promise<ScanStats>;
+}
+
+export async function gradeScan(
+  token: string,
+  scanId: string,
+  data: GradeScanPayload
+) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}/grade`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to grade scan");
   }
   return res.json() as Promise<ScanDetail>;
 }

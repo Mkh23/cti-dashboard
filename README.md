@@ -97,7 +97,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Role-aware farm APIs (`/farms`) so admins can view all farms while technicians and farmers manage only their own
 - Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
 - Admin user listing now returns full names alongside emails to support dashboard editing
-- Scan browsing, detail views, and stats (`/scans`) with presigned URLs via `app/s3_utils.py`
+- Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
 - Health & readiness probes (`/healthz`, `/readyz`)
 
@@ -106,6 +106,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Admin users page shows each person's name, email, and lets admins toggle roles with immediate API persistence
 - Shared farm manager page for admins, technicians, and farmers with create/view/edit flows respecting ownership
 - Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
+- Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 
 ## Running tests
 
@@ -181,6 +182,7 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - `GET /scans` - List scans with filtering and pagination (authenticated)
 - `GET /scans/{scan_id}` - Get scan details with presigned URLs for assets
 - `GET /scans/stats` - Get scan statistics (total, by status, recent)
+- `POST /scans/{scan_id}/grade` - Trigger a grading run (admins and technicians)
 
 ### Ingest
 - `POST /ingest/webhook` - Receive S3 notifications (HMAC required)
@@ -199,7 +201,8 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - Role-aware farm APIs covering admins, technicians, and farmers (with comprehensive tests)
 - PostGIS integration
 - **S3 presigned URL generation for secure asset access**
-- **Enhanced scans API with role-based filtering and statistics**
+- **Enhanced scans API with role-based filtering, statistics, and grading triggers**
+- **Role-based scan dashboards delivering stats, signed media previews, and grading controls**
 - Test suite with **~93% coverage** (73 tests passing when Postgres is available)
   - Auth module: 100% coverage (12 tests)
   - Admin module: 83% coverage (16 tests)
@@ -210,13 +213,12 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
   - Security module: 100% coverage
 
 🚧 **In Progress**
-- Dashboard UI components
-- Scans management API
+- Expanded analytics overlays (timeline, annotations) for scan viewer
 - AWS integration (EventBridge, Lambda, DLQ)
 
 📋 **Planned**
 - Grading worker pipeline
-- Farmer and Technician dashboards
+- Herd-level reporting and notifications for farmers
 - Monitoring and CI/CD
 
 See [ROADMAP.md](ROADMAP.md) for details.

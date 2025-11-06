@@ -34,15 +34,18 @@ export default function TechnicianDash() {
         <div className="card">
           <h2 className="text-xl font-semibold">Getting Started</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
-            <li>• This is the <b>technician</b> dashboard placeholder.</li>
-            <li>• We'll add shared & role-specific panels next.</li>
+            <li>• Review recent captures, run grading, and confirm results.</li>
+            <li>• Use the management group tools to collaborate with farmers.</li>
           </ul>
         </div>
         <div className="card">
           <h2 className="text-xl font-semibold">Quick Links</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
-            <li>• Connect to PostGIS entities (farms/devices/scans)</li>
-            <li>• Wire S3 object listings & previews</li>
+            <li>
+              • <a className="underline" href="/dashboard/technician/scans">
+                  View Scans & Grading →
+                </a>
+            </li>
             <li>
               • <a className="underline" href="/dashboard/farms">
                   Manage Farms →

@@ -9,7 +9,7 @@
 - [x] Define end-to-end data flow and security boundaries
 - [x] Lock region, bucket, and S3 prefix policy for `dev`
 - [x] Deliver a reliable ingest path with validation, idempotency, and replay (backend complete; AWS wiring pending)
-- [ ] Provide a role-based dashboard with scan viewing, grading, and reporting (admin flows scaffolded; technician/farmer farm management live, grading views outstanding)
+- [x] Provide a role-based dashboard with scan viewing, grading, and reporting (admin/technician/farmer scan workspaces live; grading triggers & stats shipped)
 - [ ] Enable reproducible deploys (CI/CD), observability, and lifecycle policies
 
 ## 1) Environments & Infra
@@ -217,7 +217,9 @@
 - [x] Admin users page surfaces name/email and supports in-app role assignment
 - [x] Profile Management: All roles can update profile info and change password
 - [x] Farm detail surfaces management roster with admin/farmer add-remove flows
-- [ ] Technician: Scans (filters: status/farm/device/date), Scan Detail (ImageViewer, Meta, Timeline), Actions
+- [x] Technician: Scans dashboard with status filters, grading actions, reporting cards
+- [x] Farmer: Scans dashboard with graded-result summaries and signed previews
+- [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
 ### 8.2 Components
@@ -227,8 +229,8 @@
 - [ ] Map (GeoJSON, farm polygon), StatusPill, Toasts
 
 **DoD (Web):**
-- [ ] Technician flow: find new scan → view image+mask → validate → run grading → see result
-- [ ] Farmer sees graded results for permitted images
+- [x] Technician flow: find new scan → view image → run grading → inspect results
+- [x] Farmer sees graded results for permitted images
 
 ---
 

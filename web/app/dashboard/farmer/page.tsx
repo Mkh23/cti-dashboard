@@ -34,15 +34,18 @@ export default function FarmerDash() {
         <div className="card">
           <h2 className="text-xl font-semibold">Getting Started</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
-            <li>• This is the <b>farmer</b> dashboard placeholder.</li>
-            <li>• We'll add shared & role-specific panels next.</li>
+            <li>• Review graded scans to understand herd performance.</li>
+            <li>• Invite trusted technicians to collaborate on farm data.</li>
           </ul>
         </div>
         <div className="card">
           <h2 className="text-xl font-semibold">Quick Links</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
-            <li>• Connect to PostGIS entities (farms/devices/scans)</li>
-            <li>• Wire S3 object listings & previews</li>
+            <li>
+              • <a className="underline" href="/dashboard/farmer/scans">
+                  View Farm Scans →
+                </a>
+            </li>
             <li>
               • <a className="underline" href="/dashboard/farms">
                   Manage Farms →
