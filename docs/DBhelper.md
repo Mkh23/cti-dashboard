@@ -17,6 +17,21 @@ ORDER BY r.name, u.email;
 ```
 
 
+# manually set admin pass:
+cd api
+. .venv/bin/activate
+python - <<'PY'
+from passlib.context import CryptContext
+pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
+print(pwd.hash('StrongPass!123'))
+PY
+-- set a new password for the admin user
+UPDATE users SET password_hash = '$2b$12$KhSFkdSqhauDI2xWVnDcAOMJ5IlAypmmTluJHLSLqtQ7XPcOMYBIa' WHERE email = 'admin@example.com';
+
+
+
+
+
 A) Fix the data now (psql)
 
 Inside psql (cti=#):

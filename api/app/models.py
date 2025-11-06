@@ -78,9 +78,25 @@ class Farm(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user_links = relationship("UserFarm", back_populates="farm", cascade="all, delete-orphan")
+    geofences = relationship("FarmGeofence", back_populates="farm", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_farms_geofence_gist", geofence, postgresql_using="gist"),
+    )
+
+
+class FarmGeofence(Base):
+    __tablename__ = "farm_geofences"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id", ondelete="CASCADE"), nullable=False, index=True)
+    label: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    geometry = Column(Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    farm = relationship("Farm", back_populates="geofences")
+
+    __table_args__ = (
+        Index("idx_farm_geofences_geom_gist", geometry, postgresql_using="gist"),
     )
 
 
@@ -154,6 +170,8 @@ class Scan(Base):
     image_asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
     mask_asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    grading = Column(Text, nullable=True)
+    meta = Column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("idx_scans_device_captured", "device_id", "captured_at"),

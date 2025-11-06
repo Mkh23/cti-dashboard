@@ -99,6 +99,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
+- Webhook ingest stores the raw `meta_json`, captures grading hints, and auto-assigns farms via PostGIS geofences (`farm_geofences`)
 - Health & readiness probes (`/healthz`, `/readyz`)
 
 ## Dashboard highlights
@@ -203,6 +204,7 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - **S3 presigned URL generation for secure asset access**
 - **Enhanced scans API with role-based filtering, statistics, and grading triggers**
 - **Role-based scan dashboards delivering stats, signed media previews, and grading controls**
+- **Webhook persistence of meta payloads with automatic farm assignment via PostGIS geofences**
 - Test suite with **~93% coverage** (73 tests passing when Postgres is available)
   - Auth module: 100% coverage (12 tests)
   - Admin module: 83% coverage (16 tests)

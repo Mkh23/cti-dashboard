@@ -21,3 +21,4 @@ data/
 htmlcov/
 *.cover
 .hypothesis/
+docs/

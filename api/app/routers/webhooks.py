@@ -12,11 +12,21 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from geoalchemy2.functions import ST_SetSRID, ST_MakePoint
 import jsonschema
 
 from ..db import get_db
-from ..models import Device, Scan, Asset, ScanEvent, IngestionLog, ScanStatus
+from ..models import (
+    Device,
+    Scan,
+    Asset,
+    ScanEvent,
+    IngestionLog,
+    ScanStatus,
+    Farm,
+    FarmGeofence,
+)
 
 router = APIRouter()
 
@@ -129,6 +139,7 @@ async def ingest_webhook(
         raise HTTPException(status_code=400, detail=error_msg)
     
     capture_id = meta_json["capture_id"]
+    grading = meta_json.get("grading") or ""
     
     # Check idempotency - if scan already exists with this ingest_key, return success
     existing = db.query(Scan).filter_by(ingest_key=ingest_key).first()
@@ -181,9 +192,11 @@ async def ingest_webhook(
     
     # Create scan record
     gps_point = None
+    farm_id = None
     if meta_json.get("gps"):
         # PostGIS Point(lon, lat)
         gps_point = ST_SetSRID(ST_MakePoint(meta_json["gps"]["lon"], meta_json["gps"]["lat"]), 4326)
+        farm_id = find_farm_for_point(db, gps_point)
     
     scan = Scan(
         capture_id=capture_id,
@@ -193,7 +206,10 @@ async def ingest_webhook(
         status=ScanStatus.ingested,
         image_asset_id=image_asset.id if image_asset else None,
         mask_asset_id=mask_asset.id if mask_asset else None,
-        gps=gps_point
+        gps=gps_point,
+        farm_id=farm_id,
+        grading=grading,
+        meta=meta_json,
     )
     db.add(scan)
     db.flush()
@@ -238,3 +254,30 @@ def log_ingestion(db: Session, capture_id: str, ingest_key: str, status: int, by
     )
     db.add(log)
     db.commit()
+
+
+def find_farm_for_point(db: Session, point):
+    """Return the farm_id whose geofence contains the provided point."""
+    if point is None:
+        return None
+
+    geofence = (
+        db.query(FarmGeofence)
+        .filter(FarmGeofence.geometry != None)
+        .filter(func.ST_Contains(FarmGeofence.geometry, point))
+        .order_by(FarmGeofence.created_at.desc())
+        .first()
+    )
+    if geofence:
+        return geofence.farm_id
+
+    farm = (
+        db.query(Farm)
+        .filter(Farm.geofence != None)
+        .filter(func.ST_Contains(Farm.geofence, point))
+        .order_by(Farm.updated_at.desc())
+        .first()
+    )
+    if farm:
+        return farm.id
+    return None

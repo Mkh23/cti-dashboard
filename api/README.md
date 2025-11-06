@@ -83,7 +83,7 @@ CORS_ORIGINS=http://localhost:3000
   - `admin.py` – user/device management (admin-only)
   - `farms.py` – farm management with role-aware ownership controls
   - `scans.py` – scan list/detail/stats, grading actions, and presigned URLs
-  - `webhooks.py` – signed ingest webhook with JSON schema validation
+  - `webhooks.py` – signed ingest webhook that stores meta payloads and auto-assigns farms using geofences
 - `app/s3_utils.py` – presigned URL helper
 - `app/schemas/meta_v1.json` – ingest contract enforced on webhook payloads
 

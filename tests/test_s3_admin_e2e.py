@@ -6,6 +6,18 @@ End-to-end S3 admin test:
 3) (Optional) presigned URL fetch
 4) DELETE and verify 404
 Exits non-zero on any failure.
+
+
+How to run it (as the same user/env your FastAPI runs under)
+# required envs
+export AWS_PROFILE=cti-dashboard
+export AWS_REGION=ca-central-1
+export CTI_BUCKET=cti-dev-406214277746
+# optional if you want to assert a specific KMS key id
+# export CTI_KMS_KEY_ID=arn:aws:kms:ca-central-1:406214277746:key/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+python3 tests/test_s3_admin_e2e.py
+
 """
 import os, sys, io, uuid, time
 import boto3

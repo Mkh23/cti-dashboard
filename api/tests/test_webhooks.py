@@ -1,10 +1,14 @@
 """Test webhook ingestion endpoints."""
-import pytest
 import json
 import hmac
 import hashlib
+import time
 from datetime import datetime
-from app.models import Device, Scan, Asset, ScanEvent, IngestionLog
+
+import pytest
+from geoalchemy2 import WKTElement
+
+from app.models import Device, Scan, Farm, FarmGeofence
 
 
 def create_hmac_signature(timestamp: str, body: str, secret: str = "dev_secret_change_me") -> str:
@@ -21,16 +25,12 @@ def create_valid_meta_json(capture_id: str, device_code: str) -> dict:
         "device_code": device_code,
         "capture_id": capture_id,
         "captured_at": "2025-01-01T12:00:00Z",
-        "image_sha256": "a" * 64,  # Valid SHA256 format
-        "files": {
-            "image_relpath": "image.jpg"
-        },
-        "probe": {
-            "model": "Test Probe"
-        },
-        "firmware": {
-            "app_version": "1.0.0"
-        }
+        "image_sha256": "a" * 64,
+        "files": {"image_relpath": "image.jpg"},
+        "gps": {"lat": 45.0, "lon": -75.0},
+        "grading": "auto-seeded",
+        "probe": {"model": "Test Probe"},
+        "firmware": {"app_version": "1.0.0"},
     }
 
 
@@ -38,15 +38,17 @@ def create_valid_meta_json(capture_id: str, device_code: str) -> dict:
 def test_device(test_db):
     """Create a test device."""
     db = test_db()
-    device = Device(device_code="TEST-DEV-001", label="Test Device")
-    db.add(device)
-    db.commit()
-    db.refresh(device)
-    db.close()
-    return device
+    try:
+        device = Device(device_code="TEST-DEV-001", label="Test Device")
+        db.add(device)
+        db.commit()
+        db.refresh(device)
+        return device
+    finally:
+        db.close()
 
 
-def test_webhook_valid_payload(client, test_device):
+def test_webhook_valid_payload(client, test_device, test_db):
     """Webhook accepts valid signed payload."""
     timestamp = str(int(datetime.utcnow().timestamp()))
     payload = {
@@ -73,6 +75,15 @@ def test_webhook_valid_payload(client, test_device):
     data = response.json()
     assert data["status"] == "success"
     assert "scan_id" in data
+
+    db = test_db()
+    try:
+        scan = db.query(Scan).filter(Scan.capture_id == "cap_123").one()
+        assert scan.grading == "auto-seeded"
+        assert scan.meta is not None
+        assert scan.meta["capture_id"] == "cap_123"
+    finally:
+        db.close()
 
 
 def test_webhook_invalid_signature(client, test_device):
@@ -202,7 +213,6 @@ def test_webhook_idempotency(client, test_device):
     scan_id_1 = response1.json()["scan_id"]
     
     # Second request with same payload (new timestamp and signature)
-    import time
     time.sleep(2)  # Ensure different timestamp
     # Use current time to avoid timing issues
     timestamp2 = str(int(time.time()))
@@ -222,3 +232,52 @@ def test_webhook_idempotency(client, test_device):
     
     # Should return same scan
     assert scan_id_1 == scan_id_2
+
+
+def test_webhook_assigns_farm_from_geofence(client, test_device, test_db):
+    """Webhook assigns farm based on geofence polygons."""
+    db = test_db()
+    try:
+        farm = Farm(name="Polygon Farm")
+        db.add(farm)
+        db.flush()
+
+        geofence = FarmGeofence(
+            farm_id=farm.id,
+            label="Primary boundary",
+            geometry=WKTElement(
+                "POLYGON((-75.2 44.8, -74.8 44.8, -74.8 45.2, -75.2 45.2, -75.2 44.8))",
+                srid=4326,
+            ),
+        )
+        db.add(geofence)
+        db.commit()
+        farm_id = farm.id
+    finally:
+        db.close()
+
+    timestamp = str(int(datetime.utcnow().timestamp()))
+    payload = {
+        "bucket": "test-bucket",
+        "ingest_key": f"raw/{test_device.device_code}/2025/01/01/cap_geo/",
+        "device_code": test_device.device_code,
+        "objects": ["image.jpg", "meta.json"],
+        "meta_json": create_valid_meta_json("cap_geo", test_device.device_code),
+    }
+    body = json.dumps(payload)
+    signature = create_hmac_signature(timestamp, body)
+
+    response = client.post(
+        "/ingest/webhook",
+        headers={"X-CTI-Timestamp": timestamp, "X-CTI-Signature": signature},
+        json=payload,
+    )
+    assert response.status_code == 200
+
+    db = test_db()
+    try:
+        scan = db.query(Scan).filter(Scan.capture_id == "cap_geo").one()
+        assert scan.farm_id == farm_id
+        assert scan.meta["gps"]["lat"] == 45.0
+    finally:
+        db.close()

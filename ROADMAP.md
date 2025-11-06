@@ -87,6 +87,7 @@
 - [x] Tampered signature is rejected (403), logged (see `tests/test_webhooks.py::test_webhook_invalid_signature`)
 - [ ] Failed events appear in DLQ and can be replayed successfully
 - [x] Test harness verifies complete ingest flow (FastAPI client + HMAC script)
+- [x] Webhook stores raw `meta_json`, grading hints, and auto-assigns farms via geofences
 
 ---
 
@@ -124,6 +125,7 @@
 - [x] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
 - [x] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
 - [x] `notifications(user_id, type, payload, is_read, created_at)`
+- [x] `farm_geofences(farm_id, geometry, label, created_at)`
 
 ### 5.3 Migrations (Alembic)
 - [x] Replace `create_all()` with Alembic baseline
@@ -151,7 +153,9 @@
 - [x] `GET /scans?filters&pagination` ✅
 - [x] `GET /scans/{scan_id}` with signed URLs to assets ✅
 - [x] `GET /scans/stats` - scan statistics with role-based filtering ✅
+- [x] `POST /scans/{scan_id}/grade` - grading simulations for admins/technicians
 - [x] S3 presigned URL generation for secure asset access ✅
+- [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
