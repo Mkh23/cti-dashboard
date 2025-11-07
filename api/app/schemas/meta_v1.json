@@ -94,6 +94,45 @@
       "pattern": "^[a-f0-9]{64}$",
       "description": "SHA256 hash of the image file"
     },
+    "IMF": {
+      "type": ["number", "string", "null"],
+      "description": "Intramuscular fat percentage (optional)"
+    },
+    "backfat_thickness": {
+      "type": ["number", "string", "null"],
+      "description": "Backfat thickness measurement"
+    },
+    "animal_weight": {
+      "type": ["number", "string", "null"],
+      "description": "Animal weight in kilograms"
+    },
+    "Animal_RFID": {
+      "type": ["string", "null"],
+      "description": "Animal RFID tag identifier"
+    },
+    "cattle_ID": {
+      "type": ["string", "null"],
+      "description": "External cattle identifier"
+    },
+    "ribeye_area": {
+      "type": ["number", "string", "null"],
+      "description": "Ribeye area measurement (cm^2)"
+    },
+    "clarity": {
+      "type": ["string", "null"],
+      "enum": ["good", "medium", "bad", "Good", "Medium", "Bad"],
+      "description": "Image clarity rating"
+    },
+    "usability": {
+      "type": ["string", "null"],
+      "enum": ["good", "medium", "bad", "Good", "Medium", "Bad"],
+      "description": "Overall usability rating"
+    },
+    "label": {
+      "type": ["string", "null"],
+      "maxLength": 255,
+      "description": "Optional free-form label (e.g., Flag, Review later)"
+    },
     "mask_sha256": {
       "type": ["string", "null"],
       "pattern": "^[a-f0-9]{64}$",

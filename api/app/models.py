@@ -20,6 +20,12 @@ class ScanStatus(str, enum.Enum):
     error = "error"
 
 
+class ScanQuality(str, enum.Enum):
+    good = "good"
+    medium = "medium"
+    bad = "bad"
+
+
 # ============ Auth & RBAC ============
 
 class Role(Base):
@@ -197,6 +203,10 @@ class Scan(Base):
     backfat_thickness = Column(Numeric(6, 3), nullable=True)
     animal_weight = Column(Numeric(10, 2), nullable=True)
     animal_rfid = Column(Text, nullable=True)
+    ribeye_area = Column(Numeric(8, 2), nullable=True)
+    clarity = Column(SQLEnum(ScanQuality, name="scan_clarity_enum"), nullable=True)
+    usability = Column(SQLEnum(ScanQuality, name="scan_usability_enum"), nullable=True)
+    label = Column(Text, nullable=True)
 
     __table_args__ = (
         Index("idx_scans_device_captured", "device_id", "captured_at"),

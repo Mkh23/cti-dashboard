@@ -159,6 +159,7 @@
 - [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
 - [x] `GET/POST /cattle` + role-aware cattle metadata management
 - [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `cattle_ID`, auto-creates cattle/animals, and routes unassigned scans to admin review
+- [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]

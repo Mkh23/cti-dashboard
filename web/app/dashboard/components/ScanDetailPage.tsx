@@ -8,9 +8,11 @@ import {
   gradeScan,
   getScan,
   me,
+  updateScanAttributes,
   type GradeScanPayload,
   type Profile,
   type ScanDetail,
+  type ScanQuality,
 } from "@/lib/api";
 import type { Role } from "@/lib/roles";
 
@@ -25,11 +27,55 @@ const formatConfidence = (value?: number | null) => {
   return `${(value * 100).toFixed(1)}%`;
 };
 
+const formatMetric = (
+  value?: number | null,
+  options: { digits?: number; suffix?: string } = {}
+) => {
+  if (value === undefined || value === null) return "—";
+  const digits = options.digits ?? 2;
+  const suffix = options.suffix ?? "";
+  return `${Number(value).toFixed(digits)}${suffix}`;
+};
+
+const qualityDisplay = (value?: string | null) => {
+  if (!value) return "—";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+const QUALITY_TONE: Record<ScanQuality, string> = {
+  good: "text-emerald-300",
+  medium: "text-amber-300",
+  bad: "text-rose-300",
+};
+
+function QualityBadge({ value }: { value?: string | null }) {
+  if (!value) return <span className="text-sm text-gray-500">—</span>;
+  const tone = QUALITY_TONE[value as ScanQuality] ?? "text-gray-300";
+  return (
+    <span className={`text-sm font-semibold uppercase tracking-wide ${tone}`}>
+      {qualityDisplay(value)}
+    </span>
+  );
+}
+
 type GradeFormState = {
   model_name: string;
   model_version: string;
   confidence: string;
 };
+
+type AttributesFormState = {
+  label: string;
+  clarity: string;
+  usability: string;
+};
+
+const QUALITY_OPTIONS: { value: "" | ScanQuality; label: string }[] = [
+  { value: "", label: "Not set" },
+  { value: "good", label: "Good" },
+  { value: "medium", label: "Medium" },
+  { value: "bad", label: "Bad" },
+];
 
 export default function ScanDetailPage({ role }: { role: Role }) {
   const params = useParams<{ scanId: string }>();
@@ -49,6 +95,15 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [gradeLoading, setGradeLoading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeSuccess, setGradeSuccess] = useState<string | null>(null);
+  const [showMask, setShowMask] = useState(false);
+  const [attributesForm, setAttributesForm] = useState<AttributesFormState>({
+    label: "",
+    clarity: "",
+    usability: "",
+  });
+  const [attributesLoading, setAttributesLoading] = useState(false);
+  const [attributesError, setAttributesError] = useState<string | null>(null);
+  const [attributesSuccess, setAttributesSuccess] = useState<string | null>(null);
 
   const detailBasePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
 
@@ -61,6 +116,12 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         model_name: data.latest_grading?.model_name ?? prev.model_name,
         model_version: data.latest_grading?.model_version ?? prev.model_version,
       }));
+       setAttributesForm({
+         label: data.label ?? "",
+         clarity: data.clarity ?? "",
+         usability: data.usability ?? "",
+       });
+       setShowMask(false);
     },
     []
   );
@@ -124,6 +185,35 @@ export default function ScanDetailPage({ role }: { role: Role }) {
       setGradeError(err?.message || "Failed to run grading");
     } finally {
       setGradeLoading(false);
+    }
+  };
+
+  const handleAttributesSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (!scan) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not logged in");
+      setAttributesLoading(true);
+      setAttributesError(null);
+      setAttributesSuccess(null);
+
+      const trimmedLabel = attributesForm.label.trim();
+      const payload = {
+        label: trimmedLabel.length ? trimmedLabel : null,
+        clarity: attributesForm.clarity || null,
+        usability: attributesForm.usability || null,
+      };
+      const updated = await updateScanAttributes(token, scan.id, payload);
+      setScan(updated);
+      setAttributesSuccess("Scan attributes updated.");
+    } catch (err: any) {
+      setAttributesError(err?.message || "Failed to update scan attributes");
+    } finally {
+      setAttributesLoading(false);
     }
   };
 
@@ -216,16 +306,175 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         </div>
       </section>
 
+      {scan && (
+        <section className="grid gap-6 md:grid-cols-2">
+          <div className="card space-y-4">
+            <h2 className="text-lg font-semibold text-white">Scan metrics</h2>
+            <dl className="grid gap-4 text-sm text-gray-300 sm:grid-cols-2">
+              <div>
+                <dt className="text-gray-400">IMF</dt>
+                <dd className="text-xl font-semibold text-white">
+                  {formatMetric(scan.imf)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-400">Backfat thickness</dt>
+                <dd className="text-xl font-semibold text-white">
+                  {formatMetric(scan.backfat_thickness)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-400">Animal weight</dt>
+                <dd className="text-xl font-semibold text-white">
+                  {formatMetric(scan.animal_weight)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-400">Ribeye area</dt>
+                <dd className="text-xl font-semibold text-white">
+                  {formatMetric(scan.ribeye_area)}
+                </dd>
+              </div>
+            </dl>
+            <div className="grid gap-4 border-t border-gray-800 pt-4 text-sm text-gray-300 sm:grid-cols-2">
+              <div>
+                <dt className="text-gray-400">Clarity</dt>
+                <dd className="mt-1">
+                  <QualityBadge value={scan.clarity} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-gray-400">Usability</dt>
+                <dd className="mt-1">
+                  <QualityBadge value={scan.usability} />
+                </dd>
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="text-lg font-semibold text-white">Review notes</h2>
+            <form
+              onSubmit={handleAttributesSubmit}
+              className="space-y-3 text-sm text-gray-300"
+            >
+              <div>
+                <label className="text-xs font-semibold uppercase text-gray-400">
+                  Label
+                </label>
+                <input
+                  type="text"
+                  value={attributesForm.label}
+                  onChange={(event) =>
+                    setAttributesForm((prev) => ({
+                      ...prev,
+                      label: event.target.value,
+                    }))
+                  }
+                  placeholder='e.g. "Flag" or "Review later"'
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-400">
+                    Clarity
+                  </label>
+                  <select
+                    value={attributesForm.clarity}
+                    onChange={(event) =>
+                      setAttributesForm((prev) => ({
+                        ...prev,
+                        clarity: event.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {QUALITY_OPTIONS.map((option) => (
+                      <option key={option.value || "unset"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase text-gray-400">
+                    Usability
+                  </label>
+                  <select
+                    value={attributesForm.usability}
+                    onChange={(event) =>
+                      setAttributesForm((prev) => ({
+                        ...prev,
+                        usability: event.target.value,
+                      }))
+                    }
+                    className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {QUALITY_OPTIONS.map((option) => (
+                      <option key={option.value || "unset"} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={attributesLoading}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {attributesLoading ? "Saving..." : "Save changes"}
+                </button>
+                {attributesError && (
+                  <span className="text-xs text-rose-300">{attributesError}</span>
+                )}
+                {attributesSuccess && (
+                  <span className="text-xs text-emerald-300">
+                    {attributesSuccess}
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
+
       {scan.image_url && (
         <section className="card space-y-3">
-          <h2 className="text-lg font-semibold text-white">Image preview</h2>
-          <div className="overflow-hidden rounded-md border border-gray-800">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Image preview</h2>
+            {scan.mask_url && (
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={showMask}
+                  onChange={(event) => setShowMask(event.target.checked)}
+                  className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
+                />
+                Highlight mask
+              </label>
+            )}
+          </div>
+          <div className="relative overflow-hidden rounded-md border border-gray-800 bg-black">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={scan.image_url}
               alt={`Scan ${scan.capture_id}`}
-              className="w-full max-h-[420px] object-contain bg-black"
+              className="w-full max-h-[420px] object-contain"
             />
+            {showMask && scan.mask_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={scan.mask_url}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain mix-blend-screen opacity-60"
+                style={{
+                  filter: "invert(1) sepia(1) saturate(8) hue-rotate(80deg)",
+                }}
+              />
+            )}
           </div>
           <p className="text-xs text-gray-500">
             Served via temporary signed URL. Refresh the page to generate a new one

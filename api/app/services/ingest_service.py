@@ -27,6 +27,7 @@ from ..models import (
     Scan,
     ScanEvent,
     ScanStatus,
+    ScanQuality,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,19 @@ def parse_decimal(value: Optional[object]) -> Optional[Decimal]:
         return Decimal(str(value))
     except (InvalidOperation, ValueError, TypeError):
         return None
+
+
+QUALITY_VALUES = {"good", "medium", "bad"}
+
+
+def normalize_quality(value: Optional[object]) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in QUALITY_VALUES:
+            return normalized
+    return None
 
 
 def get_or_create_cattle(
@@ -185,8 +199,13 @@ def ingest_scan_from_payload(
     imf = parse_decimal(meta_json.get("IMF"))
     backfat_value = parse_decimal(meta_json.get("backfat_thickness"))
     animal_weight = parse_decimal(meta_json.get("animal_weight"))
+    ribeye_area = parse_decimal(meta_json.get("ribeye_area"))
     animal_rfid = meta_json.get("Animal_RFID") or meta_json.get("animal_rfid")
     cattle_external_id = meta_json.get("cattle_ID") or meta_json.get("cattle_id")
+    clarity_value = normalize_quality(meta_json.get("clarity"))
+    usability_value = normalize_quality(meta_json.get("usability"))
+    label_value = meta_json.get("label")
+    label = label_value.strip() if isinstance(label_value, str) and label_value.strip() else None
 
     existing = db.query(Scan).filter_by(ingest_key=ingest_key).first()
     if existing:
@@ -288,6 +307,10 @@ def ingest_scan_from_payload(
         animal_weight=animal_weight,
         animal_rfid=animal_rfid,
         animal_id=animal.id if animal else None,
+        ribeye_area=ribeye_area,
+        clarity=ScanQuality(clarity_value) if clarity_value else None,
+        usability=ScanQuality(usability_value) if usability_value else None,
+        label=label,
     )
     db.add(scan)
     db.flush()

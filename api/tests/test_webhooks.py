@@ -34,6 +34,10 @@ def create_valid_meta_json(capture_id: str, device_code: str) -> dict:
         "animal_weight": 1234.5,
         "Animal_RFID": "RFID-123",
         "cattle_ID": "HERD-001",
+        "ribeye_area": 78.4,
+        "clarity": "Good",
+        "usability": "medium",
+        "label": "Review later",
         "probe": {"model": "Test Probe"},
         "firmware": {"app_version": "1.0.0"},
     }
@@ -106,6 +110,11 @@ def test_webhook_valid_payload(client, test_device, test_db):
         assert float(scan.animal_weight) == pytest.approx(1234.5)
         assert scan.animal_rfid == "RFID-123"
         assert scan.cattle_id == cattle_id
+        assert scan.ribeye_area is not None
+        assert float(scan.ribeye_area) == pytest.approx(78.4)
+        assert scan.clarity.value == "good"
+        assert scan.usability.value == "medium"
+        assert scan.label == "Review later"
     finally:
         db.close()
 

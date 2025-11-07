@@ -85,6 +85,7 @@ CORS_ORIGINS=http://localhost:3000
 - `GET /scans/{scan_id}` - Retrieve scan details with presigned asset URLs and grading history
 - `GET /scans/stats` - Aggregate totals and status breakdown (role aware)
 - `POST /scans/{scan_id}/grade` - Trigger a grading record (admins & technicians)
+- `PATCH /scans/{scan_id}` - Update review metadata (label, clarity, usability) for a scan
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers

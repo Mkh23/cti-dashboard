@@ -136,6 +136,10 @@ export type Scan = {
   backfat_thickness?: number | null;
   animal_weight?: number | null;
   animal_rfid?: string | null;
+  ribeye_area?: number | null;
+  clarity?: ScanQuality | null;
+  usability?: ScanQuality | null;
+  label?: string | null;
 };
 
 export type ScanDetail = Scan & {
@@ -147,6 +151,8 @@ export type ScanDetail = Scan & {
   mask_url?: string | null;
   grading_results: GradingResult[];
 };
+
+export type ScanQuality = "good" | "medium" | "bad";
 
 export type PaginatedScans = {
   scans: Scan[];
@@ -179,6 +185,7 @@ export async function listScans(
     status?: ScanStatus;
     device_id?: string;
     farm_id?: string;
+    label?: string;
     sort_by?: "created_at" | "captured_at";
     sort_order?: "asc" | "desc";
   }
@@ -189,6 +196,7 @@ export async function listScans(
   if (params?.status) query.set("status", params.status);
   if (params?.device_id) query.set("device_id", params.device_id);
   if (params?.farm_id) query.set("farm_id", params.farm_id);
+  if (params?.label) query.set("label", params.label);
   if (params?.sort_by) query.set("sort_by", params.sort_by);
   if (params?.sort_order) query.set("sort_order", params.sort_order);
 
@@ -244,6 +252,32 @@ export async function gradeScan(
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(txt || "Failed to grade scan");
+  }
+  return res.json() as Promise<ScanDetail>;
+}
+
+export type UpdateScanAttributesPayload = {
+  label?: string | null;
+  clarity?: ScanQuality | null;
+  usability?: ScanQuality | null;
+};
+
+export async function updateScanAttributes(
+  token: string,
+  scanId: string,
+  data: UpdateScanAttributesPayload
+) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update scan");
   }
   return res.json() as Promise<ScanDetail>;
 }

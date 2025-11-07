@@ -105,6 +105,8 @@ export default function ScanListPage({ role }: { role: Role }) {
   });
   const [stats, setStats] = useState<ScanStats | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [labelInput, setLabelInput] = useState("");
+  const [appliedLabel, setAppliedLabel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +117,7 @@ export default function ScanListPage({ role }: { role: Role }) {
   const basePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
 
   const loadData = useCallback(
-    async (nextStatus: StatusFilter, nextPage: number) => {
+    async (nextStatus: StatusFilter, nextPage: number, labelValue: string) => {
       setStatusFilter(nextStatus);
       setPageMeta((prev) => ({ ...prev, page: nextPage }));
       setLoading(true);
@@ -128,6 +130,9 @@ export default function ScanListPage({ role }: { role: Role }) {
         };
         if (nextStatus !== "all") {
           params.status = nextStatus;
+        }
+        if (labelValue) {
+          params.label = labelValue;
         }
 
         const [statsData, listData] = await Promise.all([
@@ -167,7 +172,7 @@ export default function ScanListPage({ role }: { role: Role }) {
           return;
         }
         setProfile(profileData);
-        await loadData("all", 1);
+        await loadData("all", 1, "");
       } catch (err: any) {
         setError(err?.message || "Failed to load scans");
       }
@@ -176,14 +181,28 @@ export default function ScanListPage({ role }: { role: Role }) {
 
   const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value as StatusFilter;
-    void loadData(value, 1);
+    void loadData(value, 1, appliedLabel);
   };
 
-  const handleRefresh = () => void loadData(statusFilter, pageMeta.page);
+  const handleRefresh = () =>
+    void loadData(statusFilter, pageMeta.page, appliedLabel);
 
   const goToPage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageMeta.total_pages) return;
-    void loadData(statusFilter, nextPage);
+    void loadData(statusFilter, nextPage, appliedLabel);
+  };
+
+  const handleLabelSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = labelInput.trim();
+    setAppliedLabel(trimmed);
+    void loadData(statusFilter, 1, trimmed);
+  };
+
+  const handleLabelClear = () => {
+    setLabelInput("");
+    setAppliedLabel("");
+    void loadData(statusFilter, 1, "");
   };
 
   if (error) {
@@ -205,7 +224,33 @@ export default function ScanListPage({ role }: { role: Role }) {
             Role-aware scan list with grading summaries.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <form
+            onSubmit={handleLabelSubmit}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={labelInput}
+              placeholder="Filter by label"
+              onChange={(event) => setLabelInput(event.target.value)}
+              className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800"
+            >
+              Apply
+            </button>
+            <button
+              type="button"
+              onClick={handleLabelClear}
+              disabled={!appliedLabel}
+              className="rounded-md border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Reset
+            </button>
+          </form>
           <select
             className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={statusFilter}
@@ -237,6 +282,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                 <th className="px-4 py-3">Capture</th>
                 <th className="px-4 py-3">Farm</th>
                 <th className="px-4 py-3">Device</th>
+                 <th className="px-4 py-3">Label</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Latest grading</th>
                 <th className="px-4 py-3">Created</th>
@@ -246,13 +292,13 @@ export default function ScanListPage({ role }: { role: Role }) {
             <tbody className="divide-y divide-gray-800 text-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
                     Loading scans...
                   </td>
                 </tr>
               ) : scans.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
                     No scans found for the selected filters.
                   </td>
                 </tr>
@@ -279,6 +325,15 @@ export default function ScanListPage({ role }: { role: Role }) {
                         <div className="text-xs text-gray-500">
                           Device ID: {scan.device_id}
                         </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        {scan.label ? (
+                          <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-amber-300">
+                            {scan.label}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-500">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge status={scan.status} />

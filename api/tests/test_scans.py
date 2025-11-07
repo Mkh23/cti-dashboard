@@ -261,6 +261,50 @@ def test_list_scans_with_status_filter(client, admin_token, test_scan):
         assert scan["status"] == "uploaded"
 
 
+def test_update_scan_attributes(client, admin_token, test_scan):
+    """Admins can update label, clarity, and usability on a scan."""
+    response = client.patch(
+        f"/scans/{test_scan}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"label": "Flag", "clarity": "good", "usability": "medium"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["label"] == "Flag"
+    assert data["clarity"] == "good"
+    assert data["usability"] == "medium"
+
+
+def test_list_scans_with_label_filter(client, admin_token, test_db, test_scan):
+    """Label filter should limit scans to matching labels."""
+    db = test_db()
+    try:
+        primary = db.get(Scan, test_scan)
+        primary.label = "Flag"
+
+        secondary = Scan(
+            capture_id="cap_test_002",
+            ingest_key="test-bucket/raw/SCAN-DEV-002/2025/01/01/cap_test_002/",
+            device_id=primary.device_id,
+            farm_id=primary.farm_id,
+            status=ScanStatus.uploaded,
+            label="Review later",
+        )
+        db.add(secondary)
+        db.commit()
+
+        response = client.get(
+            "/scans?label=flag",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["scans"][0]["label"] == "Flag"
+    finally:
+        db.close()
+
+
 def test_list_scans_with_pagination(client, admin_token, test_scan):
     """Can paginate scan results."""
     response = client.get(

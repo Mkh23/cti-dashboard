@@ -4,7 +4,7 @@ Implements listing, detail views, and scan actions with role-based access contro
 """
 from decimal import Decimal, ROUND_HALF_UP
 from random import uniform
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Literal
 from uuid import UUID
 from datetime import datetime, timedelta
 
@@ -22,6 +22,7 @@ from ..models import (
     Role,
     Scan,
     ScanStatus,
+    ScanQuality,
     User,
     UserFarm,
     UserRole,
@@ -83,6 +84,10 @@ class ScanOut(BaseModel):
     backfat_thickness: Optional[float]
     animal_weight: Optional[float]
     animal_rfid: Optional[str]
+    ribeye_area: Optional[float]
+    clarity: Optional[str]
+    usability: Optional[str]
+    label: Optional[str]
 
 
 class ScanDetailOut(ScanOut):
@@ -116,6 +121,18 @@ class GradeScanPayload(BaseModel):
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     confidence_breakdown: Optional[Dict[str, float]] = None
     features_used: Optional[Dict[str, float]] = None
+
+
+QualityLiteral = Literal["good", "medium", "bad"]
+
+
+class ScanAttributesUpdate(BaseModel):
+    label: Optional[str] = Field(default=None, max_length=255)
+    clarity: Optional[QualityLiteral] = None
+    usability: Optional[QualityLiteral] = None
+
+    class Config:
+        extra = "forbid"
 
 
 # ============ Helper Functions ============
@@ -262,6 +279,10 @@ def serialize_scan_summary(scan: Scan) -> ScanOut:
         backfat_thickness=decimal_to_float(scan.backfat_thickness),
         animal_weight=decimal_to_float(scan.animal_weight),
         animal_rfid=scan.animal_rfid,
+        ribeye_area=decimal_to_float(scan.ribeye_area),
+        clarity=scan.clarity.value if scan.clarity else None,
+        usability=scan.usability.value if scan.usability else None,
+        label=scan.label,
     )
 
 
@@ -322,6 +343,9 @@ def list_scans(
     status: Optional[ScanStatus] = Query(None, description="Filter by status"),
     device_id: Optional[UUID] = Query(None, description="Filter by device"),
     farm_id: Optional[UUID] = Query(None, description="Filter by farm"),
+    label: Optional[str] = Query(
+        None, description="Filter by label (case-insensitive match)"
+    ),
     sort_by: str = Query("created_at", description="Sort field (created_at or captured_at)"),
     sort_order: str = Query("desc", description="Sort order (asc or desc)"),
     current: User = Depends(get_current_user),
@@ -335,6 +359,7 @@ def list_scans(
     - **status**: Filter by scan status
     - **device_id**: Filter by device
     - **farm_id**: Filter by farm
+    - **label**: Filter by label
     - **sort_by**: Sort field (created_at or captured_at)
     - **sort_order**: Sort order (asc or desc)
     """
@@ -360,6 +385,10 @@ def list_scans(
         query = query.filter(Scan.device_id == device_id)
     if farm_id:
         query = query.filter(Scan.farm_id == farm_id)
+    if label:
+        trimmed_label = label.strip().lower()
+        if trimmed_label:
+            query = query.filter(func.lower(Scan.label) == trimmed_label)
     
     # Get total count
     total = query.count()
@@ -473,3 +502,43 @@ def grade_scan(
 
     updated_scan = load_scan_with_related(db, scan.id)
     return serialize_scan_detail(updated_scan)
+
+
+@router.patch("/{scan_id}", response_model=ScanDetailOut)
+def update_scan_attributes(
+    scan_id: UUID,
+    payload: ScanAttributesUpdate,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update review attributes (label/clarity/usability) for a scan."""
+    role_names = get_user_roles(current, db)
+    scan = load_scan_with_related(db, scan_id)
+    ensure_scan_access(scan, db, current, role_names)
+
+    updated = False
+
+    fields_set = getattr(payload, "model_fields_set", payload.__fields_set__)
+
+    if "label" in fields_set:
+        new_label = (payload.label or "").strip()
+        scan.label = new_label or None
+        updated = True
+
+    if "clarity" in fields_set:
+        scan.clarity = (
+            ScanQuality(payload.clarity) if payload.clarity is not None else None
+        )
+        updated = True
+
+    if "usability" in fields_set:
+        scan.usability = (
+            ScanQuality(payload.usability) if payload.usability is not None else None
+        )
+        updated = True
+
+    if updated:
+        db.commit()
+
+    refreshed = load_scan_with_related(db, scan_id)
+    return serialize_scan_detail(refreshed)
