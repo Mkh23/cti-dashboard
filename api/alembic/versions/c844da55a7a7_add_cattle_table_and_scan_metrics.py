@@ -38,9 +38,29 @@ def upgrade() -> None:
     op.add_column("scans", sa.Column("animal_weight", sa.Numeric(10, 2), nullable=True))
     op.add_column("scans", sa.Column("animal_rfid", sa.Text(), nullable=True))
     op.create_index("ix_scans_cattle_id", "scans", ["cattle_id"])
+    op.create_index("ix_scans_animal_rfid", "scans", ["animal_rfid"])
+
+    op.add_column("animals", sa.Column("rfid", sa.Text(), nullable=True))
+    op.add_column(
+        "animals",
+        sa.Column(
+            "cattle_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("cattle.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
+    op.create_index("ix_animals_rfid", "animals", ["rfid"], unique=True)
+    op.create_index("ix_animals_cattle_id", "animals", ["cattle_id"])
 
 
 def downgrade() -> None:
+    op.drop_index("ix_animals_cattle_id", table_name="animals")
+    op.drop_index("ix_animals_rfid", table_name="animals")
+    op.drop_column("animals", "cattle_id")
+    op.drop_column("animals", "rfid")
+
+    op.drop_index("ix_scans_animal_rfid", table_name="scans")
     op.drop_index("ix_scans_cattle_id", table_name="scans")
     op.drop_column("scans", "animal_rfid")
     op.drop_column("scans", "animal_weight")

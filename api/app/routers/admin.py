@@ -1,12 +1,15 @@
+import os
+from datetime import datetime
+from typing import List, Literal, Optional
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
 from sqlalchemy.orm import Session
-from uuid import UUID
-from datetime import datetime
 
 from ..db import get_db
 from ..models import User, Role, UserRole, Device
+from ..services.sync_service import sync_scans_from_bucket
 from .me import get_current_user  # uses Bearer token
 
 router = APIRouter()
@@ -56,6 +59,22 @@ class DeviceCreate(BaseModel):
 class DeviceUpdate(BaseModel):
     label: Optional[str] = None
     farm_id: Optional[UUID] = None
+
+
+class SyncScansPayload(BaseModel):
+    mode: Literal["add_only", "add_remove"] = "add_only"
+    prefix: Optional[str] = "raw/"
+
+
+class SyncScansResult(BaseModel):
+    bucket: str
+    prefix: str
+    mode: str
+    added: int
+    duplicates: int
+    removed: int
+    errors: List[str]
+    synced_ingest_keys: int
 
 # ============ User Management ============
 
@@ -166,3 +185,27 @@ def update_device(device_id: UUID, payload: DeviceUpdate, current: User = Depend
     db.commit()
     db.refresh(device)
     return device
+
+
+# ============ Database Sync ============
+
+@router.post("/database/sync-scans", response_model=SyncScansResult)
+def admin_sync_scans(
+    payload: SyncScansPayload,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Trigger a best-effort sync between AWS S3 and the scans table."""
+    require_admin(current, db)
+    bucket = os.getenv("CTI_BUCKET", "cti-dev-406214277746")
+    prefix = (payload.prefix or "raw/").lstrip("/")
+    if prefix and not prefix.endswith("/"):
+        prefix = f"{prefix}/"
+
+    result = sync_scans_from_bucket(
+        db,
+        bucket=bucket,
+        prefix=prefix,
+        mode=payload.mode,
+    )
+    return result

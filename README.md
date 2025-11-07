@@ -98,8 +98,9 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
-- HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, capturing grading metrics, and auto-assigning farms/cattle via PostGIS
-- Webhook ingest stores the raw `meta_json`, captures grading hints, and auto-assigns farms via PostGIS geofences (`farm_geofences`)
+- HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
+- Incoming metadata now captures IMF, backfat thickness, animal weight, `Animal_RFID`, and `cattle_ID`, automatically creating cattle/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
+- Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
 - Health & readiness probes (`/healthz`, `/readyz`)
 
 ## Dashboard highlights
@@ -109,10 +110,11 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 - Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
+- Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 
 ## Running tests
 
-The backend test suite exercises auth, admin, farms, scans, webhook flows, and S3 helpers (73 tests across `tests/`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
+The backend test suite now covers auth, profile, admin, farms, cattle/animals, scans, webhook flows, S3 helpers, and health probes (91 tests across `api/tests`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
 
 ```bash
 cd api
@@ -120,7 +122,7 @@ source .venv/bin/activate
 pytest --cov=app --cov-report=term-missing
 ```
 
-`pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres service the suite passes and typically reports coverage in the low 90s. See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
+`pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres service the suite currently passes at ~85% coverage. See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
 
 ## Project status snapshot
 
@@ -130,6 +132,8 @@ pytest --cov=app --cov-report=term-missing
 - Ingest webhook with JSON Schema validation, HMAC window enforcement, idempotency, and logging
 - Scan listing/detail/statistics endpoints returning presigned URLs for assets
 - Role-aware farm ownership enforced via `/farms` endpoints and `user_farms` association with dedicated tests
+- Meta ingestion now persists all grading hints plus IMF/backfat/weight data, automatically linking scans to cattle/animals via `Animal_RFID`/`cattle_ID` or flagging them for admin assignment
+- Test suite with **~85% coverage (91 tests)** across auth, profile, admin, farm, cattle/animal, scans, webhook, S3, and health flows
 
 🚧 **Work in progress**
 - Frontend dashboards beyond admin stubs (technician/farmer scan viewers and grading insights)

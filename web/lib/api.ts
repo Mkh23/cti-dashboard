@@ -285,6 +285,20 @@ export type Cattle = {
   updated_at: string;
 };
 
+export type Animal = {
+  id: string;
+  tag_id: string;
+  rfid?: string | null;
+  breed?: string | null;
+  sex?: string | null;
+  birth_date?: string | null;
+  farm_id?: string | null;
+  farm_name?: string | null;
+  cattle_id?: string | null;
+  cattle_name?: string | null;
+  created_at: string;
+};
+
 export type Device = {
   id: string;
   device_code: string;
@@ -378,6 +392,84 @@ export async function updateCattle(
     throw new Error(txt || "Failed to update cattle");
   }
   return res.json() as Promise<Cattle>;
+}
+
+export async function listAnimals(token: string) {
+  const res = await fetch(`${API_BASE}/animals`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch animals");
+  }
+  return res.json() as Promise<Animal[]>;
+}
+
+export async function createAnimal(
+  token: string,
+  data: {
+    tag_id: string;
+    rfid?: string;
+    breed?: string;
+    sex?: string;
+    birth_date?: string;
+    farm_id?: string;
+    cattle_id?: string;
+  }
+) {
+  const res = await fetch(`${API_BASE}/animals`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to create animal");
+  }
+  return res.json() as Promise<Animal>;
+}
+
+export async function updateAnimal(
+  token: string,
+  animalId: string,
+  data: {
+    tag_id?: string;
+    rfid?: string;
+    breed?: string;
+    sex?: string;
+    birth_date?: string;
+    farm_id?: string;
+    cattle_id?: string;
+  }
+) {
+  const res = await fetch(`${API_BASE}/animals/${animalId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update animal");
+  }
+  return res.json() as Promise<Animal>;
+}
+
+export async function deleteAnimal(token: string, animalId: string) {
+  const res = await fetch(`${API_BASE}/animals/${animalId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to delete animal");
+  }
 }
 
 export async function getFarm(token: string, farmId: string) {
@@ -477,4 +569,37 @@ export async function createDevice(
     throw new Error(txt || "Failed to create device");
   }
   return res.json() as Promise<Device>;
+}
+
+export type SyncScansMode = "add_only" | "add_remove";
+
+export type SyncScansResult = {
+  bucket: string;
+  prefix: string;
+  mode: string;
+  added: number;
+  duplicates: number;
+  removed: number;
+  errors: string[];
+  synced_ingest_keys: number;
+};
+
+export async function syncScans(
+  token: string,
+  mode: SyncScansMode,
+  prefix?: string
+) {
+  const res = await fetch(`${API_BASE}/admin/database/sync-scans`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ mode, prefix }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to sync scans");
+  }
+  return res.json() as Promise<SyncScansResult>;
 }

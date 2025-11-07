@@ -63,6 +63,11 @@ export default function AdminDash() {
           <h2 className="text-xl font-semibold">Admin Tools</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
             <li>
+              • <a className="underline" href="/dashboard/animals">
+                  Manage Animals →
+                </a>
+            </li>
+            <li>
               • <a className="underline" href="/dashboard/cattle">
                   Manage Cattle →
                 </a>
@@ -85,6 +90,11 @@ export default function AdminDash() {
             <li>
               • <a className="underline" href="/dashboard/admin/devices">
                   Device Registry →
+                </a>
+            </li>
+            <li>
+              • <a className="underline" href="/dashboard/admin/manage-database">
+                  Manage Database →
                 </a>
             </li>
             <li>

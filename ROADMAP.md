@@ -158,6 +158,7 @@
 - [x] S3 presigned URL generation for secure asset access ✅
 - [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
 - [x] `GET/POST /cattle` + role-aware cattle metadata management
+- [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `cattle_ID`, auto-creates cattle/animals, and routes unassigned scans to admin review
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
@@ -166,6 +167,8 @@
 - [x] Role-aware farm management via `/farms` endpoints (admins view all, owners manage their farms)
 - [x] Admin dashboard scaffolding (before detailed technician/farmer UI)
 - [x] User/role management, device registration, farm geofencing
+- [x] Farm member add/remove flows surface user names and technician/farmer guardrails at the API layer (mirrors dashboard UX)
+- [x] Admin database sync endpoint + UI to backfill scans from S3 or remove records missing from AWS
 - [ ] Basic system status dashboard
 
 ### 6.4 Grading & Ops

@@ -113,6 +113,7 @@ class Cattle(Base):
 
     farm = relationship("Farm", back_populates="cattle")
     scans = relationship("Scan", back_populates="cattle")
+    animals = relationship("Animal", back_populates="cattle")
 
 
 class Animal(Base):
@@ -120,16 +121,20 @@ class Animal(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id"), nullable=True)
     tag_id: Mapped[str] = mapped_column(Text, nullable=False)
+    rfid: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True)
     breed: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     sex: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     birth_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    cattle_id = Column(UUID(as_uuid=True), ForeignKey("cattle.id", ondelete="SET NULL"), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("farm_id", "tag_id", name="uq_farm_animal_tag"),
     )
 
     farm = relationship("Farm")
+    cattle = relationship("Cattle", back_populates="animals")
+    scans = relationship("Scan", back_populates="animal")
 
 
 # ============ Devices ============
@@ -201,7 +206,7 @@ class Scan(Base):
 
     device = relationship("Device")
     farm = relationship("Farm")
-    animal = relationship("Animal")
+    animal = relationship("Animal", back_populates="scans")
     operator = relationship("User")
     image_asset = relationship("Asset", foreign_keys=[image_asset_id])
     mask_asset = relationship("Asset", foreign_keys=[mask_asset_id])

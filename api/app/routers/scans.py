@@ -304,6 +304,7 @@ def load_scan_with_related(db: Session, scan_id: UUID) -> Scan:
             selectinload(Scan.grading_results).selectinload(GradingResult.creator),
             selectinload(Scan.cattle),
         )
+        .populate_existing()
         .filter(Scan.id == scan_id)
         .first()
     )

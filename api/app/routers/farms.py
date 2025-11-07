@@ -25,6 +25,18 @@ def get_role_names(db: Session, user: User) -> Set[str]:
     return {name for (name,) in roles}
 
 
+def normalize_owner_ids(owner_ids: Optional[List[UUID]]) -> Set[UUID]:
+    if not owner_ids:
+        return set()
+    result: Set[UUID] = set()
+    for value in owner_ids:
+        if isinstance(value, UUID):
+            result.add(value)
+        else:
+            result.add(UUID(str(value)))
+    return result
+
+
 def fetch_roles_for_users(db: Session, user_ids: Set[UUID]) -> Dict[UUID, List[str]]:
     if not user_ids:
         return {}
@@ -131,6 +143,15 @@ def base_query(db: Session):
     )
 
 
+def fetch_farm_with_members(db: Session, farm_id: UUID) -> Optional[Farm]:
+    return (
+        base_query(db)
+        .populate_existing()
+        .filter(Farm.id == farm_id)
+        .first()
+    )
+
+
 def ensure_owner_ids(
     db: Session, owner_ids: Set[UUID], *, allow_empty: bool = False
 ) -> Set[UUID]:
@@ -193,7 +214,7 @@ def create_farm(
     if not role_names & ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    owner_ids = set(payload.owner_ids or [])
+    owner_ids = normalize_owner_ids(payload.owner_ids)
     if "admin" not in role_names:
         owner_ids = owner_ids | {current.id}
         if owner_ids != {current.id}:
@@ -218,7 +239,7 @@ def create_farm(
 
     db.commit()
 
-    farm = base_query(db).filter(Farm.id == farm_id).first()
+    farm = fetch_farm_with_members(db, farm_id)
     if not farm:
         raise HTTPException(status_code=500, detail="Failed to create farm")
     return serialize_farm(farm, current, role_names, db)
@@ -227,11 +248,7 @@ def create_farm(
 def require_farm_access(
     db: Session, current: User, farm_id: UUID, role_names: Set[str]
 ) -> Farm:
-    farm = (
-        base_query(db)
-        .filter(Farm.id == farm_id)
-        .first()
-    )
+    farm = fetch_farm_with_members(db, farm_id)
     if not farm:
         raise HTTPException(status_code=404, detail="Farm not found")
 
@@ -277,7 +294,7 @@ def update_farm(
         farm.name = payload.name
 
     if payload.owner_ids is not None:
-        new_owner_ids = set(payload.owner_ids)
+        new_owner_ids = normalize_owner_ids(payload.owner_ids)
         if "admin" not in role_names:
             if new_owner_ids != {current.id}:
                 raise HTTPException(
@@ -358,7 +375,7 @@ def add_farm_member(
 
     db.commit()
 
-    updated_farm = base_query(db).filter(Farm.id == farm.id).first()
+    updated_farm = fetch_farm_with_members(db, farm.id)
     if not updated_farm:
         raise HTTPException(status_code=500, detail="Failed to load farm")
     return serialize_farm(updated_farm, current, role_names, db)
@@ -413,7 +430,7 @@ def remove_farm_member(
     db.delete(link)
     db.commit()
 
-    updated_farm = base_query(db).filter(Farm.id == farm.id).first()
+    updated_farm = fetch_farm_with_members(db, farm.id)
     if not updated_farm:
         raise HTTPException(status_code=500, detail="Failed to load farm")
     return serialize_farm(updated_farm, current, role_names, db)

@@ -247,3 +247,47 @@ def test_create_device_with_farm(client, admin_token, test_db):
     assert response.status_code == 200
     data = response.json()
     assert data["farm_id"] == farm_id
+
+
+# ============ Database Sync Tests ============
+
+def test_admin_sync_scans_endpoint(client, admin_token, monkeypatch):
+    """Admin can trigger the scan sync endpoint."""
+    called = {}
+
+    def fake_sync(db, *, bucket, prefix, mode, s3_client=None):
+        called["bucket"] = bucket
+        called["prefix"] = prefix
+        called["mode"] = mode
+        return {
+            "bucket": bucket,
+            "prefix": prefix,
+            "mode": mode,
+            "added": 2,
+            "duplicates": 1,
+            "removed": 0,
+            "errors": [],
+            "synced_ingest_keys": 3,
+        }
+
+    monkeypatch.setattr("app.routers.admin.sync_scans_from_bucket", fake_sync)
+
+    response = client.post(
+        "/admin/database/sync-scans",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"mode": "add_only"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["added"] == 2
+    assert called["mode"] == "add_only"
+
+
+def test_admin_sync_scans_forbidden(client, tech_token):
+    """Non-admins cannot initiate the sync."""
+    response = client.post(
+        "/admin/database/sync-scans",
+        headers={"Authorization": f"Bearer {tech_token}"},
+        json={"mode": "add_only"},
+    )
+    assert response.status_code == 403

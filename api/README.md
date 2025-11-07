@@ -57,6 +57,7 @@ CORS_ORIGINS=http://localhost:3000
 
 - `GET/POST /admin/users` - User management
 - `GET/POST /admin/devices` - Device registry
+- `POST /admin/database/sync-scans` - Trigger AWS scan reconciliation (add-only or add+remove) using the same ingest path as the webhook
 
 ### Farms
 
@@ -71,6 +72,12 @@ CORS_ORIGINS=http://localhost:3000
 - `GET /cattle` - List cattle groups (admins see all, others are scoped to their farms)
 - `POST /cattle` - Create a cattle group with optional external ID and born date
 - `GET/PUT /cattle/{cattle_id}` - View or update cattle metadata (role-aware farm enforcement)
+
+### Animals
+
+- `GET /animals` - List animals tied to the caller's farms (admins can see all)
+- `POST /animals` - Create an animal with optional RFID/tag metadata and farm/cattle linkage
+- `GET/PUT /animals/{animal_id}` - View or update an animal record with the same farm guardrails
 
 ### Scans
 
@@ -90,7 +97,7 @@ CORS_ORIGINS=http://localhost:3000
   - `farms.py` – farm management with role-aware ownership controls
   - `cattle.py` – cattle manager endpoints
   - `scans.py` – scan list/detail/stats, grading actions, and presigned URLs
-  - `webhooks.py` – signed ingest webhook that stores meta payloads and auto-assigns farms/cattle using geofences
+  - `webhooks.py` – signed ingest webhook that stores meta payloads (IMF/backfat/weight/Animal_RFID/cattle_ID) and auto-assigns farms/cattle/animals using geofences
 - `app/s3_utils.py` – presigned URL helper
 - `app/schemas/meta_v1.json` – ingest contract enforced on webhook payloads
 
@@ -104,7 +111,7 @@ source .venv/bin/activate
 pytest
 ```
 
-`pytest.ini` adds coverage reporting (`--cov=app --cov-report=term-missing --cov-report=html`) and enforces a 70% minimum. The suite covers:
+`pytest.ini` adds coverage reporting (`--cov=app --cov-report=term-missing --cov-report=html`) and enforces a 70% minimum; the current suite passes at roughly 85% coverage. The suite covers:
 
 - Authentication flows (`tests/test_auth.py`)
 - Admin management (`tests/test_admin.py`)
