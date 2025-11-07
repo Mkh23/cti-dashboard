@@ -98,7 +98,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
-- HMAC-protected ingest webhook validating `meta_v1.json` and persisting scans/assets/events/logs
+- HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, capturing grading metrics, and auto-assigning farms/cattle via PostGIS
 - Webhook ingest stores the raw `meta_json`, captures grading hints, and auto-assigns farms via PostGIS geofences (`farm_geofences`)
 - Health & readiness probes (`/healthz`, `/readyz`)
 
@@ -108,6 +108,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Shared farm manager page for admins, technicians, and farmers with create/view/edit flows respecting ownership
 - Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
+- Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
 
 ## Running tests
 
@@ -178,6 +179,11 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - `GET/PUT /farms/{farm_id}` - View or update farms you own; admins can update any farm
 - `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
 - `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role guardrails
+
+### Cattle
+- `GET /cattle` - List cattle groups scoped to the authenticated user's farms (admins see all)
+- `POST /cattle` - Create a cattle group with optional external ID and born date
+- `GET/PUT /cattle/{cattle_id}` - View or update cattle information (role-aware farm enforcement)
 
 ### Scans
 - `GET /scans` - List scans with filtering and pagination (authenticated)

@@ -25,6 +25,7 @@ from ..models import (
     User,
     UserFarm,
     UserRole,
+    Cattle,
 )
 from .me import get_current_user
 from ..s3_utils import generate_presigned_url
@@ -75,6 +76,13 @@ class ScanOut(BaseModel):
     mask_asset_id: Optional[UUID]
     created_at: datetime
     latest_grading: Optional[LatestGradingOut] = None
+    cattle_id: Optional[UUID]
+    cattle_name: Optional[str]
+    cattle_external_id: Optional[str]
+    imf: Optional[float]
+    backfat_thickness: Optional[float]
+    animal_weight: Optional[float]
+    animal_rfid: Optional[str]
 
 
 class ScanDetailOut(ScanOut):
@@ -113,6 +121,12 @@ class GradeScanPayload(BaseModel):
 # ============ Helper Functions ============
 
 CONFIDENCE_STEP = Decimal("0.0001")
+
+
+def decimal_to_float(value: Optional[Decimal]) -> Optional[float]:
+    if value is None:
+        return None
+    return float(value)
 
 
 def get_user_roles(user: User, db: Session) -> Set[str]:
@@ -241,6 +255,13 @@ def serialize_scan_summary(scan: Scan) -> ScanOut:
         mask_asset_id=scan.mask_asset_id,
         created_at=scan.created_at,
         latest_grading=latest,
+        cattle_id=scan.cattle_id,
+        cattle_name=scan.cattle.name if scan.cattle else None,
+        cattle_external_id=scan.cattle.external_id if scan.cattle else None,
+        imf=decimal_to_float(scan.imf),
+        backfat_thickness=decimal_to_float(scan.backfat_thickness),
+        animal_weight=decimal_to_float(scan.animal_weight),
+        animal_rfid=scan.animal_rfid,
     )
 
 
@@ -281,6 +302,7 @@ def load_scan_with_related(db: Session, scan_id: UUID) -> Scan:
             selectinload(Scan.image_asset),
             selectinload(Scan.mask_asset),
             selectinload(Scan.grading_results).selectinload(GradingResult.creator),
+            selectinload(Scan.cattle),
         )
         .filter(Scan.id == scan_id)
         .first()
@@ -325,6 +347,7 @@ def list_scans(
             selectinload(Scan.image_asset),
             selectinload(Scan.mask_asset),
             selectinload(Scan.grading_results),
+            selectinload(Scan.cattle),
         )
     )
 

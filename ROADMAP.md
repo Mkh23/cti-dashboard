@@ -125,6 +125,7 @@
 - [x] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
 - [x] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
 - [x] `notifications(user_id, type, payload, is_read, created_at)`
+- [x] `cattle(name, external_id, born_date, farm_id)`
 - [x] `farm_geofences(farm_id, geometry, label, created_at)`
 
 ### 5.3 Migrations (Alembic)
@@ -156,6 +157,7 @@
 - [x] `POST /scans/{scan_id}/grade` - grading simulations for admins/technicians
 - [x] S3 presigned URL generation for secure asset access ✅
 - [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
+- [x] `GET/POST /cattle` + role-aware cattle metadata management
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]
@@ -223,6 +225,7 @@
 - [x] Farm detail surfaces management roster with admin/farmer add-remove flows
 - [x] Technician: Scans dashboard with status filters, grading actions, reporting cards
 - [x] Farmer: Scans dashboard with graded-result summaries and signed previews
+- [x] Shared cattle manager page for admins/technicians/farmers
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 

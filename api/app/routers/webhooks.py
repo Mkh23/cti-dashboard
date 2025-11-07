@@ -7,8 +7,10 @@ import json
 import hmac
 import hashlib
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
@@ -18,14 +20,15 @@ import jsonschema
 
 from ..db import get_db
 from ..models import (
-    Device,
-    Scan,
     Asset,
-    ScanEvent,
-    IngestionLog,
-    ScanStatus,
+    Cattle,
+    Device,
     Farm,
     FarmGeofence,
+    IngestionLog,
+    Scan,
+    ScanEvent,
+    ScanStatus,
 )
 
 router = APIRouter()
@@ -140,6 +143,11 @@ async def ingest_webhook(
     
     capture_id = meta_json["capture_id"]
     grading = meta_json.get("grading") or ""
+    imf = parse_decimal(meta_json.get("IMF"))
+    backfat_value = parse_decimal(meta_json.get("backfat_thickness"))
+    animal_weight = parse_decimal(meta_json.get("animal_weight"))
+    animal_rfid = meta_json.get("Animal_RFID") or meta_json.get("animal_rfid")
+    cattle_external_id = meta_json.get("cattle_ID") or meta_json.get("cattle_id")
     
     # Check idempotency - if scan already exists with this ingest_key, return success
     existing = db.query(Scan).filter_by(ingest_key=ingest_key).first()
@@ -197,6 +205,7 @@ async def ingest_webhook(
         # PostGIS Point(lon, lat)
         gps_point = ST_SetSRID(ST_MakePoint(meta_json["gps"]["lon"], meta_json["gps"]["lat"]), 4326)
         farm_id = find_farm_for_point(db, gps_point)
+    cattle_id = resolve_cattle_id(db, cattle_external_id)
     
     scan = Scan(
         capture_id=capture_id,
@@ -210,6 +219,11 @@ async def ingest_webhook(
         farm_id=farm_id,
         grading=grading,
         meta=meta_json,
+        cattle_id=cattle_id,
+        imf=imf,
+        backfat_thickness=backfat_value,
+        animal_weight=animal_weight,
+        animal_rfid=animal_rfid,
     )
     db.add(scan)
     db.flush()
@@ -281,3 +295,23 @@ def find_farm_for_point(db: Session, point):
     if farm:
         return farm.id
     return None
+
+
+def parse_decimal(value: Optional[object]) -> Optional[Decimal]:
+    if value in (None, ""):
+        return None
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
+def resolve_cattle_id(db: Session, external_id: Optional[str]) -> Optional[UUID]:
+    if not external_id:
+        return None
+    cattle = (
+        db.query(Cattle)
+        .filter(Cattle.external_id == external_id)
+        .first()
+    )
+    return cattle.id if cattle else None

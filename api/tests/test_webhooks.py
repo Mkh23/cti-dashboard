@@ -8,7 +8,7 @@ from datetime import datetime
 import pytest
 from geoalchemy2 import WKTElement
 
-from app.models import Device, Scan, Farm, FarmGeofence
+from app.models import Device, Scan, Farm, FarmGeofence, Cattle
 
 
 def create_hmac_signature(timestamp: str, body: str, secret: str = "dev_secret_change_me") -> str:
@@ -29,6 +29,11 @@ def create_valid_meta_json(capture_id: str, device_code: str) -> dict:
         "files": {"image_relpath": "image.jpg"},
         "gps": {"lat": 45.0, "lon": -75.0},
         "grading": "auto-seeded",
+        "IMF": "0.92",
+        "backfat_thickness": 0.8,
+        "animal_weight": 1234.5,
+        "Animal_RFID": "RFID-123",
+        "cattle_ID": "HERD-001",
         "probe": {"model": "Test Probe"},
         "firmware": {"app_version": "1.0.0"},
     }
@@ -50,6 +55,17 @@ def test_device(test_db):
 
 def test_webhook_valid_payload(client, test_device, test_db):
     """Webhook accepts valid signed payload."""
+    # ensure cattle exists for assignment
+    db = test_db()
+    try:
+        herd = Cattle(name="Existing Herd", external_id="HERD-001")
+        db.add(herd)
+        db.commit()
+        db.refresh(herd)
+        cattle_id = herd.id
+    finally:
+        db.close()
+
     timestamp = str(int(datetime.utcnow().timestamp()))
     payload = {
         "bucket": "test-bucket",
@@ -82,6 +98,14 @@ def test_webhook_valid_payload(client, test_device, test_db):
         assert scan.grading == "auto-seeded"
         assert scan.meta is not None
         assert scan.meta["capture_id"] == "cap_123"
+        assert scan.imf is not None
+        assert float(scan.imf) == pytest.approx(0.92)
+        assert scan.backfat_thickness is not None
+        assert float(scan.backfat_thickness) == pytest.approx(0.8)
+        assert scan.animal_weight is not None
+        assert float(scan.animal_weight) == pytest.approx(1234.5)
+        assert scan.animal_rfid == "RFID-123"
+        assert scan.cattle_id == cattle_id
     finally:
         db.close()
 
@@ -212,10 +236,8 @@ def test_webhook_idempotency(client, test_device):
     assert response1.status_code == 200
     scan_id_1 = response1.json()["scan_id"]
     
-    # Second request with same payload (new timestamp and signature)
-    time.sleep(2)  # Ensure different timestamp
-    # Use current time to avoid timing issues
-    timestamp2 = str(int(time.time()))
+    # Second request with same payload (new signature)
+    timestamp2 = timestamp
     signature2 = create_hmac_signature(timestamp2, body)
     headers2 = {
         "X-CTI-Timestamp": timestamp2,
@@ -259,10 +281,10 @@ def test_webhook_assigns_farm_from_geofence(client, test_device, test_db):
     timestamp = str(int(datetime.utcnow().timestamp()))
     payload = {
         "bucket": "test-bucket",
-        "ingest_key": f"raw/{test_device.device_code}/2025/01/01/cap_geo/",
+        "ingest_key": f"raw/{test_device.device_code}/2025/01/01/cap_777001/",
         "device_code": test_device.device_code,
         "objects": ["image.jpg", "meta.json"],
-        "meta_json": create_valid_meta_json("cap_geo", test_device.device_code),
+        "meta_json": create_valid_meta_json("cap_777001", test_device.device_code),
     }
     body = json.dumps(payload)
     signature = create_hmac_signature(timestamp, body)
@@ -276,7 +298,7 @@ def test_webhook_assigns_farm_from_geofence(client, test_device, test_db):
 
     db = test_db()
     try:
-        scan = db.query(Scan).filter(Scan.capture_id == "cap_geo").one()
+        scan = db.query(Scan).filter(Scan.capture_id == "cap_777001").one()
         assert scan.farm_id == farm_id
         assert scan.meta["gps"]["lat"] == 45.0
     finally:

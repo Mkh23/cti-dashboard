@@ -129,6 +129,13 @@ export type Scan = {
   mask_asset_id?: string | null;
   created_at: string;
   latest_grading?: LatestGrading | null;
+  cattle_id?: string | null;
+  cattle_name?: string | null;
+  cattle_external_id?: string | null;
+  imf?: number | null;
+  backfat_thickness?: number | null;
+  animal_weight?: number | null;
+  animal_rfid?: string | null;
 };
 
 export type ScanDetail = Scan & {
@@ -267,6 +274,17 @@ export type Farm = {
   can_edit: boolean;
 };
 
+export type Cattle = {
+  id: string;
+  name: string;
+  external_id?: string | null;
+  born_date?: string | null;
+  farm_id?: string | null;
+  farm_name?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Device = {
   id: string;
   device_code: string;
@@ -309,6 +327,57 @@ export async function createFarm(
     throw new Error(txt || "Failed to create farm");
   }
   return res.json() as Promise<Farm>;
+}
+
+export async function listCattle(token: string) {
+  const res = await fetch(`${API_BASE}/cattle`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch cattle");
+  }
+  return res.json() as Promise<Cattle[]>;
+}
+
+export async function createCattle(
+  token: string,
+  data: { name: string; external_id?: string; born_date?: string; farm_id?: string }
+) {
+  const res = await fetch(`${API_BASE}/cattle`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to create cattle");
+  }
+  return res.json() as Promise<Cattle>;
+}
+
+export async function updateCattle(
+  token: string,
+  cattleId: string,
+  data: { name?: string; external_id?: string; born_date?: string; farm_id?: string }
+) {
+  const res = await fetch(`${API_BASE}/cattle/${cattleId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update cattle");
+  }
+  return res.json() as Promise<Cattle>;
 }
 
 export async function getFarm(token: string, farmId: string) {

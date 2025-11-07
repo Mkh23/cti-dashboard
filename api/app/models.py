@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from sqlalchemy import (
     Column, Integer, String, DateTime, Boolean, ForeignKey, 
@@ -79,6 +79,7 @@ class Farm(Base):
 
     user_links = relationship("UserFarm", back_populates="farm", cascade="all, delete-orphan")
     geofences = relationship("FarmGeofence", back_populates="farm", cascade="all, delete-orphan")
+    cattle = relationship("Cattle", back_populates="farm", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_farms_geofence_gist", geofence, postgresql_using="gist"),
@@ -98,6 +99,20 @@ class FarmGeofence(Base):
     __table_args__ = (
         Index("idx_farm_geofences_geom_gist", geometry, postgresql_using="gist"),
     )
+
+
+class Cattle(Base):
+    __tablename__ = "cattle"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    external_id: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True)
+    born_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    farm_id = Column(UUID(as_uuid=True), ForeignKey("farms.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    farm = relationship("Farm", back_populates="cattle")
+    scans = relationship("Scan", back_populates="cattle")
 
 
 class Animal(Base):
@@ -172,6 +187,11 @@ class Scan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     grading = Column(Text, nullable=True)
     meta = Column(JSONB, nullable=True)
+    cattle_id = Column(UUID(as_uuid=True), ForeignKey("cattle.id", ondelete="SET NULL"), nullable=True)
+    imf = Column(Numeric(6, 4), nullable=True)
+    backfat_thickness = Column(Numeric(6, 3), nullable=True)
+    animal_weight = Column(Numeric(10, 2), nullable=True)
+    animal_rfid = Column(Text, nullable=True)
 
     __table_args__ = (
         Index("idx_scans_device_captured", "device_id", "captured_at"),
@@ -190,6 +210,7 @@ class Scan(Base):
         back_populates="scan",
         cascade="all, delete-orphan",
     )
+    cattle = relationship("Cattle", back_populates="scans")
 
 
 # ============ Scan Events ============

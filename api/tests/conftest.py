@@ -19,7 +19,9 @@ TEST_DATABASE_URL = os.getenv(
 def test_db():
     """Create a test database session."""
     engine = create_engine(TEST_DATABASE_URL)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
+    )
     
     # Create tables
     Base.metadata.create_all(bind=engine)
@@ -64,7 +66,9 @@ def test_db_without_roles():
     # Use a different database for this test to avoid conflicts
     test_url_no_roles = TEST_DATABASE_URL.replace("cti_test", "cti_test_no_roles")
     engine = create_engine(test_url_no_roles)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, expire_on_commit=False, bind=engine
+    )
     
     # Create tables but DON'T seed roles
     Base.metadata.create_all(bind=engine)

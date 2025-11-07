@@ -63,6 +63,11 @@ export default function AdminDash() {
           <h2 className="text-xl font-semibold">Admin Tools</h2>
           <ul className="mt-3 space-y-2 text-gray-300">
             <li>
+              • <a className="underline" href="/dashboard/cattle">
+                  Manage Cattle →
+                </a>
+            </li>
+            <li>
               • <a className="underline" href="/dashboard/admin/scans">
                   Scan Oversight →
                 </a>

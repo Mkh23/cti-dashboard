@@ -47,6 +47,11 @@ export default function TechnicianDash() {
                 </a>
             </li>
             <li>
+              • <a className="underline" href="/dashboard/cattle">
+                  Manage Cattle →
+                </a>
+            </li>
+            <li>
               • <a className="underline" href="/dashboard/farms">
                   Manage Farms →
                 </a>
