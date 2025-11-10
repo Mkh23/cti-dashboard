@@ -13,19 +13,6 @@ type NavLink = {
   matchExact?: boolean;
 };
 
-const NAV_LINKS: NavLink[] = [
-  { href: "/", label: "Home", matchExact: true },
-  { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/admin", label: "Admin" },
-  { href: "/dashboard/technician", label: "Technician" },
-  { href: "/dashboard/farmer", label: "Farmer" },
-  { href: "/dashboard/farms", label: "Farms" },
-  { href: "/dashboard/animals", label: "Animals" },
-  { href: "/dashboard/cattle", label: "Cattle" },
-  { href: "/dashboard/admin/scans", label: "Scans" },
-  { href: "/dashboard/admin/announcements", label: "Admin Notes" },
-];
-
 export function DashboardNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -45,18 +32,52 @@ export function DashboardNav() {
     return roleToPath(primaryRole);
   }, [profile]);
 
-  const scansHref = useMemo(() => {
-    if (!profile) return "/dashboard/admin/scans";
-    if (profile.roles.includes("admin")) return "/dashboard/admin/scans";
-    if (profile.roles.includes("technician")) return "/dashboard/technician";
-    return "/dashboard/farmer";
-  }, [profile]);
+  const roles = profile?.roles ?? [];
+  const isAdmin = roles.includes("admin");
+  const isTechnician = roles.includes("technician") && !isAdmin;
+  const isFarmer = roles.includes("farmer") && !isAdmin && !isTechnician;
 
-  const links = useMemo(() => {
-    return NAV_LINKS.map((link) =>
-      link.label === "Scans" ? { ...link, href: scansHref } : link
-    );
-  }, [scansHref]);
+  const scansHref = useMemo(() => {
+    if (isAdmin) return "/dashboard/admin/scans";
+    if (isTechnician) return "/dashboard/technician/scans";
+    if (isFarmer) return "/dashboard/farmer/scans";
+    return "/dashboard/admin/scans";
+  }, [isAdmin, isTechnician, isFarmer]);
+
+  const links: NavLink[] = useMemo(() => {
+    const base: NavLink[] = [{ href: "/", label: "Home", matchExact: true }];
+    if (isAdmin) {
+      return [
+        ...base,
+        { href: "/dashboard/admin", label: "Admin" },
+        { href: "/dashboard/farms", label: "Farms" },
+        { href: "/dashboard/animals", label: "Animals" },
+        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: scansHref, label: "Scans" },
+        { href: "/dashboard/admin/announcements", label: "Admin Notes" },
+      ];
+    }
+    if (isTechnician) {
+      return [
+        ...base,
+        { href: "/dashboard/technician", label: "Technician" },
+        { href: "/dashboard/animals", label: "Animals" },
+        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: scansHref, label: "Scans" },
+      ];
+    }
+    if (isFarmer) {
+      return [
+        ...base,
+        { href: "/dashboard/farmer", label: "Farmer" },
+        { href: "/dashboard/farms", label: "Farms" },
+        { href: "/dashboard/animals", label: "Animals" },
+        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: scansHref, label: "Scans" },
+      ];
+    }
+    return base;
+  }, [isAdmin, isTechnician, isFarmer, scansHref]);
 
   const handleSignOut = () => {
     if (typeof window === "undefined") return;

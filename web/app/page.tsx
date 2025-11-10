@@ -4,54 +4,44 @@ import { listPublicAnnouncements } from "@/lib/api";
 
 const CowLineArt = () => (
   <svg
-    viewBox="0 0 600 320"
+    viewBox="0 0 640 320"
     xmlns="http://www.w3.org/2000/svg"
-    className="cow-outline h-48 w-full"
+    className="cow-outline h-52 w-full"
     fill="none"
   >
     <defs>
-      <linearGradient id="cowStroke" x1="0" y1="0" x2="600" y2="0">
+      <linearGradient id="cowStroke" x1="0" y1="0" x2="640" y2="0">
         <stop offset="0%" stopColor="#34d399" />
-        <stop offset="60%" stopColor="#60a5fa" />
+        <stop offset="50%" stopColor="#60a5fa" />
         <stop offset="100%" stopColor="#f472b6" />
       </linearGradient>
     </defs>
     <path
       stroke="url(#cowStroke)"
       strokeWidth={3}
-      d="M40 210 C90 160, 150 130, 210 150 C230 155, 240 150, 260 130 C270 120, 300 110, 330 140 C350 160, 360 160, 390 150 C430 140, 460 150, 480 190 C495 220, 510 260, 540 260 C560 260, 560 300, 520 295 C495 292, 480 270, 470 250 C460 230, 440 230, 420 240 C400 250, 360 260, 330 250 C300 240, 260 240, 220 260 C190 275, 160 285, 130 280 C110 276, 120 240, 130 220 C140 200, 130 180, 100 185 C70 190, 50 200, 40 210 Z"
+      d="M60 215 C80 150, 140 110, 210 120 C240 125, 265 120, 295 110 C320 102, 350 95, 380 120 C400 137, 415 140, 460 132 C490 127, 520 140, 535 172 C550 207, 560 238, 585 240 C608 242, 610 278, 582 276 C550 274, 532 246, 520 226 C506 203, 485 205, 464 214 C436 226, 392 234, 356 226 C322 219, 288 222, 248 240 C214 256, 180 266, 150 264 C120 262, 120 230, 136 212 C150 196, 142 176, 108 182 C85 186, 70 202, 60 215 Z"
+    />
+    <path
+      stroke="url(#cowStroke)"
+      strokeWidth={3}
+      d="M465 132 C470 115, 490 104, 515 108 C535 111, 545 95, 540 78 C536 64, 520 60, 506 72 C492 84, 472 82, 456 94"
+    />
+    <path
+      stroke="url(#cowStroke)"
+      strokeWidth={3}
+      d="M170 262 L162 304 M210 248 L206 302 M410 230 L406 300 M448 218 L454 296"
     />
   </svg>
 );
 
 const CowScene = () => (
   <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-2xl backdrop-blur">
-    <div className="flex items-center justify-between text-xs uppercase tracking-[0.4em] text-slate-400">
-      <span>Contour Trace</span>
-      <span>Probe Sweep</span>
+    <div className="cow-glow absolute inset-0 rounded-[2.25rem] border border-emerald-400/20" />
+    <CowLineArt />
+    <div className="probe-glow absolute left-1/4 top-1/3 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/70 bg-black/60">
+      <div className="h-3 w-8 rounded-full bg-emerald-300/70" />
     </div>
-    <div className="relative mt-6">
-      <div className="cow-glow absolute inset-0 rounded-[2.25rem] border border-emerald-400/20" />
-      <CowLineArt />
-      <div className="pointer-events-none absolute inset-x-10 bottom-2 flex justify-between text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">
-        <span>BRISKET</span>
-        <span>RIBEYE</span>
-      </div>
-      <div className="probe-glow absolute left-1/4 top-5 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/70 bg-black/60">
-        <div className="h-3 w-8 rounded-full bg-emerald-300/70" />
-      </div>
-      <div className="pointer-events-none absolute left-1/4 top-5 h-1 w-40 origin-left bg-gradient-to-r from-emerald-300/70 to-transparent blur-[2px]" />
-    </div>
-    <div className="mt-6 grid gap-4 text-sm text-slate-200 md:grid-cols-2">
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Glowing trace</p>
-        <p className="mt-1 text-lg font-semibold text-white">Real-time cow silhouette rendered from the latest scan.</p>
-      </div>
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-sky-300">Probe sweep</p>
-        <p className="mt-1 text-lg font-semibold text-white">Animated transducer arc shows exactly where data is collected.</p>
-      </div>
-    </div>
+    <div className="pointer-events-none absolute left-1/4 top-1/3 h-1 w-48 origin-left bg-gradient-to-r from-emerald-300/70 to-transparent blur-[2px]" />
   </div>
 );
 
