@@ -101,6 +101,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
 - Incoming metadata now captures IMF, backfat thickness, animal weight, `Animal_RFID`, and `cattle_ID`, automatically creating cattle/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
 - Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
+- Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
 - Health & readiness probes (`/healthz`, `/readyz`)
 
@@ -113,6 +114,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 - Scan listing supports label filters/badges, and scan detail pages now include a mask overlay toggle plus editable clarity/usability/label annotations
+- Global dashboard navigation keeps Admin/Technician/Farmer/Animals/Cattle/Farms/Notes one click away, while the refreshed landing page pairs an interactive ultrasound hero with published announcements
 
 ## Running tests
 

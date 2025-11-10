@@ -8,3 +8,8 @@ a { @apply underline underline-offset-4; }
 .btn { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium bg-white/10 hover:bg-white/20; }
 .input { @apply w-full rounded-xl bg-white/10 px-3 py-2 outline-none ring-1 ring-white/15 focus:ring-white/40; }
 .card { @apply rounded-2xl bg-white/5 p-6 shadow-lg shadow-black/30; }
+
+[data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: rgba(226, 232, 240, 0.4);
+}

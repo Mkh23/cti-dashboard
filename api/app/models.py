@@ -1,7 +1,7 @@
 from datetime import datetime, date
 from typing import Optional
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Boolean, ForeignKey, 
+    Column, Integer, String, DateTime, Boolean, ForeignKey,
     UniqueConstraint, Text, BigInteger, Enum as SQLEnum, Date, Numeric, Index
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
@@ -303,3 +303,16 @@ class Notification(Base):
     )
 
     user = relationship("User")
+
+
+class AdminAnnouncement(Base):
+    __tablename__ = "admin_announcements"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    content_html: Mapped[str] = mapped_column(Text, nullable=False)
+    show_on_home: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    author = relationship("User")

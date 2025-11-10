@@ -86,6 +86,12 @@ CORS_ORIGINS=http://localhost:3000
 - `GET /scans/stats` - Aggregate totals and status breakdown (role aware)
 - `POST /scans/{scan_id}/grade` - Trigger a grading record (admins & technicians)
 - `PATCH /scans/{scan_id}` - Update review metadata (label, clarity, usability) for a scan
+
+### Announcements
+
+- `GET /announcements` - Public feed of admin-approved announcements shown on the landing page
+- `GET /admin/announcements` - Admin-only listing of all announcements
+- `POST /admin/announcements` - Create a new announcement (rich-text HTML, optional landing-page visibility)
 ## Key modules
 
 - `app/main.py` – FastAPI application, middleware, and routers

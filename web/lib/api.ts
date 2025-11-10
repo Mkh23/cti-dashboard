@@ -637,3 +637,83 @@ export async function syncScans(
   }
   return res.json() as Promise<SyncScansResult>;
 }
+
+export type Announcement = {
+  id: string;
+  author_name?: string | null;
+  subject?: string | null;
+  content_html: string;
+  created_at: string;
+  show_on_home?: boolean;
+  pinned?: boolean;
+};
+
+export async function listPublicAnnouncements() {
+  const res = await fetch(`${API_BASE}/announcements`, { cache: "no-store" });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch announcements");
+  }
+  return res.json() as Promise<Announcement[]>;
+}
+
+export async function listAdminAnnouncements(token: string) {
+  const res = await fetch(`${API_BASE}/admin/announcements`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch announcements");
+  }
+  return res.json() as Promise<Announcement[]>;
+}
+
+export async function createAnnouncement(
+  token: string,
+  data: {
+    subject: string;
+    content_html: string;
+    show_on_home: boolean;
+    pinned: boolean;
+  }
+) {
+  const res = await fetch(`${API_BASE}/admin/announcements`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to create announcement");
+  }
+  return res.json() as Promise<Announcement>;
+}
+
+export async function updateAnnouncement(
+  token: string,
+  id: string,
+  data: {
+    subject?: string;
+    content_html?: string;
+    show_on_home?: boolean;
+    pinned?: boolean;
+  }
+) {
+  const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update announcement");
+  }
+  return res.json() as Promise<Announcement>;
+}

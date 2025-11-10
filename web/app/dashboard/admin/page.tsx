@@ -93,6 +93,11 @@ export default function AdminDash() {
                 </a>
             </li>
             <li>
+              • <a className="underline" href="/dashboard/admin/announcements">
+                  Publish Notes →
+                </a>
+            </li>
+            <li>
               • <a className="underline" href="/dashboard/admin/manage-database">
                   Manage Database →
                 </a>
