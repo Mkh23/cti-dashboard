@@ -1,14 +1,19 @@
 """Tests for animals management endpoints."""
 import pytest
 
-from app.models import Role, User, UserRole, Farm, UserFarm, Cattle
+from app.models import Role, User, UserRole, Farm, UserFarm, Cattle, RegistrationStatus
 from app.security import hash_password
 
 
 def _create_user_with_role(db_session_factory, email: str, role_name: str) -> User:
     session = db_session_factory()
     try:
-        user = User(email=email, hashed_password=hash_password("password123"))
+        user = User(
+            email=email,
+            hashed_password=hash_password("password123"),
+            registration_status=RegistrationStatus.approved,
+            is_active=True,
+        )
         session.add(user)
         session.commit()
         session.refresh(user)

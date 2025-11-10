@@ -36,7 +36,8 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         "full_name": user.full_name,
         "phone_number": user.phone_number,
         "address": user.address,
-        "roles": role_names
+        "roles": role_names,
+        "registration_status": user.registration_status,
     }
 
 @router.put("", response_model=MeOut)
@@ -72,7 +73,8 @@ def update_profile(
         "full_name": user.full_name,
         "phone_number": user.phone_number,
         "address": user.address,
-        "roles": role_names
+        "roles": role_names,
+        "registration_status": user.registration_status,
     }
 
 @router.post("/password")

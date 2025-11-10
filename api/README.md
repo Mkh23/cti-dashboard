@@ -32,7 +32,7 @@ CORS_ORIGINS=http://localhost:3000
 
 ### Authentication
 
-- `POST /auth/register` - Register new user
+- `POST /auth/register` - Register new user (requires email, password, full name, phone, address, and a requested role). The first account becomes admin immediately; all subsequent registrations remain pending until approved by an admin.
 - `POST /auth/login` - Login (returns JWT token)
 - `GET /me` - Get current user info with roles
 
@@ -55,7 +55,10 @@ CORS_ORIGINS=http://localhost:3000
 
 ### Admin
 
-- `GET/POST /admin/users` - User management
+- `GET /admin/users` - List all users with roles and registration status
+- `GET /admin/users/pending` - List pending registration requests
+- `POST /admin/users/{user_id}/approve` - Approve a pending user and assign roles
+- `POST /admin/users/{user_id}/reject` - Reject a pending registration
 - `GET/POST /admin/devices` - Device registry
 - `POST /admin/database/sync-scans` - Trigger AWS scan reconciliation (add-only or add+remove) using the same ingest path as the webhook
 

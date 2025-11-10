@@ -11,6 +11,7 @@ from app.models import (
     Asset,
     Farm,
     UserFarm,
+    RegistrationStatus,
 )
 
 
@@ -20,7 +21,12 @@ def admin_user(test_db):
     db = test_db()
     
     from app.security import hash_password
-    user = User(email="admin@scan.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="admin@scan.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -39,7 +45,12 @@ def technician_user(test_db):
     db = test_db()
     
     from app.security import hash_password
-    user = User(email="tech@scan.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="tech@scan.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -58,7 +69,12 @@ def farmer_user(test_db):
     db = test_db()
 
     from app.security import hash_password
-    user = User(email="farmer@scan.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="farmer@scan.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

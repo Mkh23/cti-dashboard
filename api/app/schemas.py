@@ -1,10 +1,22 @@
-from pydantic import BaseModel, EmailStr
+from enum import Enum
+from typing import Literal, Optional
 from uuid import UUID
-from typing import Optional
 
-class UserCreate(BaseModel):
+from pydantic import BaseModel, EmailStr
+
+class RegistrationStatus(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
+class UserRegistration(BaseModel):
     email: EmailStr
     password: str
+    full_name: str
+    phone_number: str
+    address: str
+    requested_role: Literal["farmer", "technician"]
 
 class Token(BaseModel):
     access_token: str
@@ -13,6 +25,7 @@ class Token(BaseModel):
 class UserOut(BaseModel):
     id: UUID
     email: EmailStr
+    registration_status: RegistrationStatus
     class Config:
         from_attributes = True
 
@@ -23,6 +36,7 @@ class MeOut(BaseModel):
     phone_number: Optional[str] = None
     address: Optional[str] = None
     roles: list[str]
+    registration_status: RegistrationStatus
 
 class UpdateProfile(BaseModel):
     full_name: Optional[str] = None

@@ -148,6 +148,7 @@
 - [x] First user registration automatically becomes admin
 - [x] Comprehensive auth tests (14 tests, 100% auth module coverage)
 - [x] Profile management endpoints (`PUT /me`, `POST /me/password`) with 10 comprehensive tests
+- [x] Self-service registration workflow where new signups stay pending until an admin approves/rejects them via `/admin/users/pending`
 
 ### 6.2 Ingest & Scans [PRIORITY]
 - [x] `POST /ingest/webhook` — HMAC + Schema; idempotent on `ingest_key` ✅
@@ -161,6 +162,7 @@
 - [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `cattle_ID`, auto-creates cattle/animals, and routes unassigned scans to admin review
 - [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [x] Admin announcement system with public landing feed + dashboard navigation overhaul for quick panel access
+- [x] Dashboard nav exposes Home/Scans links, branded role-aware routing, and sign-out controls, while the marketing home page showcases the animated cow + probe hero
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
 ### 6.3 Devices & Admin [EARLY FOCUS]

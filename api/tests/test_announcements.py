@@ -1,14 +1,19 @@
 """Tests for announcement endpoints."""
 import pytest
 
-from app.models import User, Role, UserRole
+from app.models import User, Role, UserRole, RegistrationStatus
 from app.security import hash_password
 
 
 @pytest.fixture
 def admin_user(test_db):
     db = test_db()
-    user = User(email="announce-admin@test.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="announce-admin@test.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

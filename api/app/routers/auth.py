@@ -6,8 +6,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 from ..db import get_db, Base, engine
 from ..models import User, Role, UserRole
-from ..schemas import UserCreate, Token, UserOut
+from ..schemas import UserRegistration, Token, UserOut
 from ..security import hash_password, verify_password, create_token
+from ..models import RegistrationStatus
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ router = APIRouter()
 # Run: alembic upgrade head
 
 @router.post("/register", response_model=UserOut)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+def register(payload: UserRegistration, db: Session = Depends(get_db)):
     if db.query(User).filter_by(email=payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     
@@ -29,17 +30,28 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
             detail="Database not properly initialized. Please run migrations: alembic upgrade head"
         )
     
-    user = User(email=payload.email, hashed_password=hash_password(payload.password))
+    any_admin = db.query(UserRole).join(Role).filter(Role.name == "admin").first()
+    status = RegistrationStatus.approved if not any_admin else RegistrationStatus.pending
+    is_active = status == RegistrationStatus.approved
+
+    user = User(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        full_name=payload.full_name,
+        phone_number=payload.phone_number,
+        address=payload.address,
+        registration_status=status,
+        requested_role=payload.requested_role,
+        is_active=is_active,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
     
-    # by default, first user becomes admin if no admins exist
-    any_admin = db.query(UserRole).join(Role).filter(Role.name=="admin").first()
-    role_to_assign = admin_role if not any_admin else technician_role
-    
-    db.add(UserRole(user_id=user.id, role_id=role_to_assign.id))
-    db.commit()
+    if status == RegistrationStatus.approved:
+        db.add(UserRole(user_id=user.id, role_id=admin_role.id))
+        db.commit()
+
     return user
 
 @router.post("/login", response_model=Token)
@@ -47,5 +59,7 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get
     user = db.query(User).filter_by(email=form.username).first()
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    if user.registration_status != RegistrationStatus.approved or not user.is_active:
+        raise HTTPException(status_code=403, detail="Account pending approval")
     token = create_token(str(user.id))
     return {"access_token": token, "token_type": "bearer"}

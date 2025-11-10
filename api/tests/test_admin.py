@@ -1,6 +1,8 @@
 """Test admin endpoints."""
 import pytest
-from app.models import User, Role, UserRole, Farm, Device
+from app.models import User, Role, UserRole, Farm, Device, RegistrationStatus
+
+from .utils import registration_payload
 
 
 @pytest.fixture
@@ -10,7 +12,12 @@ def admin_user(test_db):
     
     # Create user
     from app.security import hash_password
-    user = User(email="admin@test.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="admin@test.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -31,7 +38,12 @@ def technician_user(test_db):
     
     # Create user
     from app.security import hash_password
-    user = User(email="tech@test.com", hashed_password=hash_password("password123"))
+    user = User(
+        email="tech@test.com",
+        hashed_password=hash_password("password123"),
+        registration_status=RegistrationStatus.approved,
+        is_active=True,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -80,6 +92,7 @@ def test_list_users_as_admin(client, admin_token):
     assert isinstance(users, list)
     assert len(users) >= 1  # At least the admin user
     assert "full_name" in users[0]
+    assert "registration_status" in users[0]
 
 
 def test_list_users_as_technician_forbidden(client, tech_token):
@@ -130,6 +143,67 @@ def test_update_user_roles_as_technician_forbidden(client, tech_token, technicia
         json={"roles": ["admin"]}
     )
     assert response.status_code == 403
+
+
+def test_admin_can_view_and_approve_pending_users(client, admin_token):
+    """Admin reviews pending registrations and approves them."""
+    pending_resp = client.post(
+        "/auth/register",
+        json=registration_payload("pending@example.com", requested_role="farmer"),
+    )
+    assert pending_resp.status_code == 200
+    pending_id = pending_resp.json()["id"]
+
+    pending_list = client.get(
+        "/admin/users/pending", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert pending_list.status_code == 200
+    assert any(u["id"] == pending_id for u in pending_list.json())
+
+    approve = client.post(
+        f"/admin/users/{pending_id}/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"roles": ["farmer"]},
+    )
+    assert approve.status_code == 200
+    assert approve.json()["registration_status"] == RegistrationStatus.approved.value
+
+    pending_list = client.get(
+        "/admin/users/pending", headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert all(u["id"] != pending_id for u in pending_list.json())
+
+
+def test_non_admin_cannot_approve_pending_users(client, tech_token):
+    """Technicians cannot approve pending accounts."""
+    pending_resp = client.post(
+        "/auth/register",
+        json=registration_payload("pending2@example.com", requested_role="technician"),
+    )
+    pending_id = pending_resp.json()["id"]
+
+    resp = client.post(
+        f"/admin/users/{pending_id}/approve",
+        headers={"Authorization": f"Bearer {tech_token}"},
+        json={"roles": ["technician"]},
+    )
+    assert resp.status_code == 403
+
+
+def test_admin_can_reject_pending_users(client, admin_token):
+    pending_resp = client.post(
+        "/auth/register",
+        json=registration_payload("reject@example.com", requested_role="technician"),
+    )
+    pending_id = pending_resp.json()["id"]
+
+    reject = client.post(
+        f"/admin/users/{pending_id}/reject",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"reason": "Incomplete info"},
+    )
+    assert reject.status_code == 200
+    assert reject.json()["registration_status"] == RegistrationStatus.rejected.value
 
 
 # ============ Device Management Tests ============

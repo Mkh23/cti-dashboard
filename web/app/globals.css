@@ -13,3 +13,48 @@ a { @apply underline underline-offset-4; }
   content: attr(data-placeholder);
   color: rgba(226, 232, 240, 0.4);
 }
+
+@keyframes cow-draw {
+  0% { stroke-dashoffset: 900; opacity: 0.4; }
+  60% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -40; opacity: 0.8; }
+}
+
+@keyframes cow-glow {
+  0%, 100% { opacity: 0.2; transform: scale(0.98); }
+  50% { opacity: 0.5; transform: scale(1.02); }
+}
+
+@keyframes probe-sweep {
+  0% { transform: translate(-40%, -30%) rotate(-12deg); opacity: 0.4; }
+  50% { transform: translate(50%, 20%) rotate(4deg); opacity: 0.9; }
+  100% { transform: translate(-40%, -30%) rotate(-12deg); opacity: 0.4; }
+}
+
+.cow-outline path {
+  stroke-dasharray: 900;
+  stroke-dashoffset: 900;
+  animation: cow-draw 8s ease-in-out infinite;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cow-glow {
+  animation: cow-glow 6s ease-in-out infinite;
+}
+
+.probe-glow {
+  animation: probe-sweep 7s ease-in-out infinite;
+  box-shadow: 0 0 50px rgba(45, 212, 191, 0.45);
+  position: relative;
+}
+
+.probe-glow::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45,212,191,0.45), transparent 60%);
+  filter: blur(6px);
+  z-index: -1;
+}

@@ -16,6 +16,15 @@ JOIN roles r ON ur.role_id = r.id
 ORDER BY r.name, u.email;
 ```
 
+# Drop and recreate the dev DB
+From repo root; this wipes the current cti database
+The database should be up!
+```
+./scripts/dev.sh 
+docker compose exec -T db psql -U postgres -c "DROP DATABASE IF EXISTS cti;"
+docker compose exec -T db psql -U postgres -c "CREATE DATABASE cti;"
+docker compose exec -T db psql -U postgres -d cti -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+```
 
 # manually set admin pass:
 cd api
@@ -28,7 +37,18 @@ PY
 -- set a new password for the admin user
 UPDATE users SET password_hash = '$2b$12$KhSFkdSqhauDI2xWVnDcAOMJ5IlAypmmTluJHLSLqtQ7XPcOMYBIa' WHERE email = 'admin@example.com';
 
+# manually create admin through API
 
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+        "email": "admin@example.com",
+        "password": "StrongPass!123",
+        "full_name": "Site Admin",
+        "phone_number": "+1-555-1234",
+        "address": "123 Ranch Road, Calgary, AB",
+        "requested_role": "technician"
+      }'
 
 
 

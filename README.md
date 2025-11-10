@@ -70,8 +70,19 @@ Register the first user to seed an admin:
 ```bash
 curl -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"StrongPass!123"}'
+  -d '{
+        "email":"admin@example.com",
+        "password":"StrongPass!123",
+        "full_name":"Site Admin",
+        "phone_number":"+1-555-1234",
+        "address":"123 Ranch Road",
+        "requested_role":"technician"
+      }'
 ```
+
+### Requesting access through the UI
+
+The Next.js app now exposes `/register`, which collects full name, phone, address, and a requested role (farmer or technician). The first account created in a fresh database is auto-approved and assigned the admin role; all subsequent registrations remain in a **pending** state until an existing admin approves or rejects them from the dashboard. Pending users cannot log in until they are approved.
 
 ### Environment variables
 
@@ -93,6 +104,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 ## API highlights
 
 - Auth & RBAC (`/auth`, `/me`)
+- Self-service registration queue: new signups land in `pending` status until an admin approves and assigns roles
 - Admin management for users and devices (`/admin/*`)
 - Role-aware farm APIs (`/farms`) so admins can view all farms while technicians and farmers manage only their own
 - Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
@@ -113,8 +125,9 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 - Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
+- User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app
 - Scan listing supports label filters/badges, and scan detail pages now include a mask overlay toggle plus editable clarity/usability/label annotations
-- Global dashboard navigation keeps Admin/Technician/Farmer/Animals/Cattle/Farms/Notes one click away, while the refreshed landing page pairs an interactive ultrasound hero with published announcements
+- Global dashboard navigation now includes quick links to Home and Scans, a one-tap sign-out, and a branded link that routes each user to their preferred dashboard, while the refreshed landing page layers an animated line-art cow + probe scene alongside admin announcements
 
 ## Running tests
 

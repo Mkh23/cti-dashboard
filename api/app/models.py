@@ -26,6 +26,12 @@ class ScanQuality(str, enum.Enum):
     bad = "bad"
 
 
+class RegistrationStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 # ============ Auth & RBAC ============
 
 class Role(Base):
@@ -43,6 +49,12 @@ class User(Base):
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    registration_status: Mapped[RegistrationStatus] = mapped_column(
+        SQLEnum(RegistrationStatus, name="registrationstatus"),
+        default=RegistrationStatus.pending,
+        nullable=False,
+    )
+    requested_role: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

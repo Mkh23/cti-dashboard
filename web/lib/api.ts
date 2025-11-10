@@ -3,6 +3,8 @@
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
+export type RegistrationStatus = "pending" | "approved" | "rejected";
+
 export type Profile = {
   id: number;
   email: string;
@@ -10,6 +12,16 @@ export type Profile = {
   phone_number?: string | null;
   address?: string | null;
   roles: string[]; // ["admin","technician"] etc.
+  registration_status: RegistrationStatus;
+};
+
+export type RegisterUserPayload = {
+  email: string;
+  password: string;
+  full_name: string;
+  phone_number: string;
+  address: string;
+  requested_role: "farmer" | "technician";
 };
 
 export async function login(email: string, password: string) {
@@ -28,6 +40,19 @@ export async function login(email: string, password: string) {
     throw new Error(txt || "Invalid credentials");
   }
   return res.json() as Promise<{ access_token: string; token_type: string }>;
+}
+
+export async function registerUser(payload: RegisterUserPayload) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Registration failed");
+  }
+  return res.json() as Promise<{ id: string; email: string; registration_status: RegistrationStatus }>;
 }
 
 export async function me(token: string) {
@@ -83,6 +108,90 @@ export async function changePassword(token: string, data: ChangePasswordData) {
     throw new Error(txt || "Failed to change password");
   }
   return res.json() as Promise<{ message: string }>;
+}
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  roles: string[];
+  registration_status: RegistrationStatus;
+  requested_role?: string | null;
+};
+
+export type PendingUser = {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  phone_number?: string | null;
+  address?: string | null;
+  requested_role?: string | null;
+  registration_status: RegistrationStatus;
+  created_at: string;
+};
+
+export async function listAdminUsers(token: string) {
+  const res = await fetch(`${API_BASE}/admin/users`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to load users");
+  }
+  return res.json() as Promise<AdminUser[]>;
+}
+
+export async function listPendingUsers(token: string) {
+  const res = await fetch(`${API_BASE}/admin/users/pending`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to load pending users");
+  }
+  return res.json() as Promise<PendingUser[]>;
+}
+
+export async function approvePendingUser(
+  token: string,
+  id: string,
+  roles: string[]
+) {
+  const res = await fetch(`${API_BASE}/admin/users/${id}/approve`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ roles }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to approve user");
+  }
+  return res.json() as Promise<AdminUser>;
+}
+
+export async function rejectPendingUser(
+  token: string,
+  id: string,
+  reason?: string
+) {
+  const res = await fetch(`${API_BASE}/admin/users/${id}/reject`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to reject user");
+  }
+  return res.json() as Promise<PendingUser>;
 }
 
 // Scans API

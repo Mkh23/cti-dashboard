@@ -1,5 +1,59 @@
 import Link from "next/link";
+
 import { listPublicAnnouncements } from "@/lib/api";
+
+const CowLineArt = () => (
+  <svg
+    viewBox="0 0 600 320"
+    xmlns="http://www.w3.org/2000/svg"
+    className="cow-outline h-48 w-full"
+    fill="none"
+  >
+    <defs>
+      <linearGradient id="cowStroke" x1="0" y1="0" x2="600" y2="0">
+        <stop offset="0%" stopColor="#34d399" />
+        <stop offset="60%" stopColor="#60a5fa" />
+        <stop offset="100%" stopColor="#f472b6" />
+      </linearGradient>
+    </defs>
+    <path
+      stroke="url(#cowStroke)"
+      strokeWidth={3}
+      d="M40 210 C90 160, 150 130, 210 150 C230 155, 240 150, 260 130 C270 120, 300 110, 330 140 C350 160, 360 160, 390 150 C430 140, 460 150, 480 190 C495 220, 510 260, 540 260 C560 260, 560 300, 520 295 C495 292, 480 270, 470 250 C460 230, 440 230, 420 240 C400 250, 360 260, 330 250 C300 240, 260 240, 220 260 C190 275, 160 285, 130 280 C110 276, 120 240, 130 220 C140 200, 130 180, 100 185 C70 190, 50 200, 40 210 Z"
+    />
+  </svg>
+);
+
+const CowScene = () => (
+  <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-2xl backdrop-blur">
+    <div className="flex items-center justify-between text-xs uppercase tracking-[0.4em] text-slate-400">
+      <span>Contour Trace</span>
+      <span>Probe Sweep</span>
+    </div>
+    <div className="relative mt-6">
+      <div className="cow-glow absolute inset-0 rounded-[2.25rem] border border-emerald-400/20" />
+      <CowLineArt />
+      <div className="pointer-events-none absolute inset-x-10 bottom-2 flex justify-between text-[0.7rem] uppercase tracking-[0.3em] text-slate-400">
+        <span>BRISKET</span>
+        <span>RIBEYE</span>
+      </div>
+      <div className="probe-glow absolute left-1/4 top-5 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-300/70 bg-black/60">
+        <div className="h-3 w-8 rounded-full bg-emerald-300/70" />
+      </div>
+      <div className="pointer-events-none absolute left-1/4 top-5 h-1 w-40 origin-left bg-gradient-to-r from-emerald-300/70 to-transparent blur-[2px]" />
+    </div>
+    <div className="mt-6 grid gap-4 text-sm text-slate-200 md:grid-cols-2">
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+        <p className="text-xs uppercase tracking-[0.3em] text-emerald-300">Glowing trace</p>
+        <p className="mt-1 text-lg font-semibold text-white">Real-time cow silhouette rendered from the latest scan.</p>
+      </div>
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+        <p className="text-xs uppercase tracking-[0.3em] text-sky-300">Probe sweep</p>
+        <p className="mt-1 text-lg font-semibold text-white">Animated transducer arc shows exactly where data is collected.</p>
+      </div>
+    </div>
+  </div>
+);
 
 export default async function HomePage() {
   let announcements: Awaited<ReturnType<typeof listPublicAnnouncements>> = [];
@@ -37,6 +91,12 @@ export default async function HomePage() {
             >
               Log in
             </Link>
+            <Link
+              href="/register"
+              className="rounded-full border border-emerald-400/60 px-6 py-3 text-base font-semibold uppercase tracking-wide text-white/90 hover:bg-emerald-400/10"
+            >
+              Request access
+            </Link>
             <a
               href="#panels"
               className="rounded-full border border-white/30 px-6 py-3 text-base font-semibold uppercase tracking-wide text-white/90 hover:border-emerald-400"
@@ -66,6 +126,7 @@ export default async function HomePage() {
         </section>
 
         <section className="flex-1 space-y-6">
+          <CowScene />
           <div className="rounded-3xl border border-white/10 bg-slate-950/60 p-6 shadow-2xl backdrop-blur">
             <div className="flex items-center justify-between text-xs uppercase tracking-[0.4em] text-slate-400">
               <span>Ultrasound Live</span>

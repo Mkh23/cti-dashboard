@@ -1,6 +1,7 @@
 // web/app/login/page.tsx
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login, me } from "@/lib/api";
@@ -81,8 +82,11 @@ export default function LoginPage() {
           </button>
         </form>
         <p className="mt-4 text-sm text-gray-400">
-          Tip: Register the first user in Swagger at <code>/auth/register</code>{" "}
-          to become admin.
+          Need an account?{" "}
+          <Link className="underline" href="/register">
+            Request access
+          </Link>{" "}
+          and an admin will approve you.
         </p>
       </div>
     </main>
