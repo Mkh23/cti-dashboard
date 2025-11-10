@@ -162,7 +162,7 @@
 - [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `cattle_ID`, auto-creates cattle/animals, and routes unassigned scans to admin review
 - [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [x] Admin announcement system with public landing feed + dashboard navigation overhaul for quick panel access
-- [x] Dashboard nav exposes Home/Scans links, branded role-aware routing, and sign-out controls, only surfaces links relevant to each role, and the marketing home page showcases the animated cow + probe hero
+- [x] Dashboard nav exposes Home/Scans links, branded role-aware routing, and sign-out controls, only surfaces links relevant to each role, and the marketing home page keeps CTAs plus announcements front-and-center
 - [x] Login screen offers Home and Request Access shortcuts so users can recover easily from deep links
 - [ ] `POST /scans/{scan_id}/validate|link-animal|note` (tech/admin)
 
