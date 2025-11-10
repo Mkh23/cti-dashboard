@@ -128,6 +128,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app
 - Scan listing supports label filters/badges, and scan detail pages now include a mask overlay toggle plus editable clarity/usability/label annotations
 - Global dashboard navigation now includes quick links to Home and Scans, a one-tap sign-out, and a branded link that routes each user to their preferred dashboard, while the refreshed landing page layers an animated line-art cow + probe scene alongside admin announcements
+- Login view offers inline shortcuts back to the marketing home or the public registration form so users can recover from mistyped URLs quickly
 
 ## Running tests
 

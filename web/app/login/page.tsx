@@ -53,7 +53,15 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto max-w-md px-6 py-16">
-      <div className="card">
+      <div className="card space-y-4">
+        <div className="flex flex-wrap justify-between gap-2 text-sm">
+          <Link className="btn bg-white/10 hover:bg-white/20" href="/">
+            Home
+          </Link>
+          <Link className="btn bg-emerald-500/20 hover:bg-emerald-400/30 text-emerald-100" href="/register">
+            Request access
+          </Link>
+        </div>
         <h1 className="text-2xl font-bold">Login</h1>
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
