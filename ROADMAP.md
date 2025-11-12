@@ -235,6 +235,7 @@
 - [x] Farmer: Scans dashboard with graded-result summaries and signed previews
 - [x] Shared cattle manager page for admins/technicians/farmers
 - [x] Scan detail attribute editor locks clarity/usability dropdowns to ScanQuality enums and normalizes the payload so updates can't send invalid values
+- [x] Next.js alias config stabilized so `@/lib/*` imports work in production builds
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
