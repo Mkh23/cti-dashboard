@@ -13,6 +13,7 @@ import {
   type Profile,
   type ScanDetail,
   type ScanQuality,
+  type UpdateScanAttributesPayload,
 } from "@/lib/api";
 import type { Role } from "@/lib/roles";
 
@@ -66,8 +67,8 @@ type GradeFormState = {
 
 type AttributesFormState = {
   label: string;
-  clarity: string;
-  usability: string;
+  clarity: "" | ScanQuality;
+  usability: "" | ScanQuality;
 };
 
 const QUALITY_OPTIONS: { value: "" | ScanQuality; label: string }[] = [
@@ -76,6 +77,9 @@ const QUALITY_OPTIONS: { value: "" | ScanQuality; label: string }[] = [
   { value: "medium", label: "Medium" },
   { value: "bad", label: "Bad" },
 ];
+
+const toQualityOrNull = (value: "" | ScanQuality): ScanQuality | null =>
+  value === "" ? null : value;
 
 export default function ScanDetailPage({ role }: { role: Role }) {
   const params = useParams<{ scanId: string }>();
@@ -116,12 +120,12 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         model_name: data.latest_grading?.model_name ?? prev.model_name,
         model_version: data.latest_grading?.model_version ?? prev.model_version,
       }));
-       setAttributesForm({
-         label: data.label ?? "",
-         clarity: data.clarity ?? "",
-         usability: data.usability ?? "",
-       });
-       setShowMask(false);
+      setAttributesForm({
+        label: data.label ?? "",
+        clarity: (data.clarity as ScanQuality | null) ?? "",
+        usability: (data.usability as ScanQuality | null) ?? "",
+      });
+      setShowMask(false);
     },
     []
   );
@@ -202,10 +206,10 @@ export default function ScanDetailPage({ role }: { role: Role }) {
       setAttributesSuccess(null);
 
       const trimmedLabel = attributesForm.label.trim();
-      const payload = {
+      const payload: UpdateScanAttributesPayload = {
         label: trimmedLabel.length ? trimmedLabel : null,
-        clarity: attributesForm.clarity || null,
-        usability: attributesForm.usability || null,
+        clarity: toQualityOrNull(attributesForm.clarity),
+        usability: toQualityOrNull(attributesForm.usability),
       };
       const updated = await updateScanAttributes(token, scan.id, payload);
       setScan(updated);
@@ -382,12 +386,14 @@ export default function ScanDetailPage({ role }: { role: Role }) {
                   </label>
                   <select
                     value={attributesForm.clarity}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.target
+                        .value as "" | ScanQuality;
                       setAttributesForm((prev) => ({
                         ...prev,
-                        clarity: event.target.value,
-                      }))
-                    }
+                        clarity: value,
+                      }));
+                    }}
                     className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {QUALITY_OPTIONS.map((option) => (
@@ -403,12 +409,14 @@ export default function ScanDetailPage({ role }: { role: Role }) {
                   </label>
                   <select
                     value={attributesForm.usability}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.target
+                        .value as "" | ScanQuality;
                       setAttributesForm((prev) => ({
                         ...prev,
-                        usability: event.target.value,
-                      }))
-                    }
+                        usability: value,
+                      }));
+                    }}
                     className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     {QUALITY_OPTIONS.map((option) => (

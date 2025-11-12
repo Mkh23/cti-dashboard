@@ -234,6 +234,7 @@
 - [x] Technician: Scans dashboard with status filters, grading actions, reporting cards
 - [x] Farmer: Scans dashboard with graded-result summaries and signed previews
 - [x] Shared cattle manager page for admins/technicians/farmers
+- [x] Scan detail attribute editor locks clarity/usability dropdowns to ScanQuality enums and normalizes the payload so updates can't send invalid values
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
