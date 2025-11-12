@@ -124,6 +124,7 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000
 - Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 - Scan detail editor now enforces clarity/usability dropdowns with type-safe enums and payload normalization so updates can't submit invalid values or fail builds
+- Backend scan API schemas now explicitly allow `model_name` / `model_version` fields via a shared Pydantic config so dev/prod logs stay noise-free
 - Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 - User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app

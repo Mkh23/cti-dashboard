@@ -255,6 +255,7 @@
 - [ ] Correlate logs by `capture_id` / `ingest_key` across Lambda → API → DB
 - [ ] Structured logs (JSON) with request IDs
 - [ ] Log rotation and archival
+- [x] Remove noisy Pydantic protected-namespace warnings in scan API schemas
 
 ### 9.2 Metrics & Monitoring
 - [ ] Prometheus metrics endpoints in API

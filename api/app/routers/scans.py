@@ -9,7 +9,7 @@ from uuid import UUID
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.orm import Session, selectinload
 
@@ -37,7 +37,11 @@ router = APIRouter()
 # ============ Schemas ============
 
 
-class LatestGradingOut(BaseModel):
+class ScanApiModel(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+
+class LatestGradingOut(ScanApiModel):
     id: Optional[UUID] = None
     model_name: Optional[str] = None
     model_version: Optional[str] = None
@@ -45,7 +49,7 @@ class LatestGradingOut(BaseModel):
     created_at: Optional[datetime] = None
 
 
-class GradingResultOut(BaseModel):
+class GradingResultOut(ScanApiModel):
     id: UUID
     model_name: str
     model_version: str
@@ -59,7 +63,7 @@ class GradingResultOut(BaseModel):
     created_at: datetime
 
 
-class ScanOut(BaseModel):
+class ScanOut(ScanApiModel):
     id: UUID
     scan_id: Optional[str]
     capture_id: str
@@ -100,13 +104,13 @@ class ScanDetailOut(ScanOut):
     grading_results: List[GradingResultOut] = Field(default_factory=list)
 
 
-class ScanStatsOut(BaseModel):
+class ScanStatsOut(ScanApiModel):
     total: int
     by_status: Dict[str, int]
     recent_count: int  # Scans in last 24 hours
 
 
-class PaginatedScans(BaseModel):
+class PaginatedScans(ScanApiModel):
     scans: List[ScanOut]
     total: int
     page: int
@@ -114,7 +118,7 @@ class PaginatedScans(BaseModel):
     total_pages: int
 
 
-class GradeScanPayload(BaseModel):
+class GradeScanPayload(ScanApiModel):
     model_name: str = Field(default="cti-sim", max_length=255)
     model_version: str = Field(default="1.0.0", max_length=50)
     inference_sha256: Optional[str] = Field(default=None, max_length=64)
@@ -126,7 +130,7 @@ class GradeScanPayload(BaseModel):
 QualityLiteral = Literal["good", "medium", "bad"]
 
 
-class ScanAttributesUpdate(BaseModel):
+class ScanAttributesUpdate(ScanApiModel):
     label: Optional[str] = Field(default=None, max_length=255)
     clarity: Optional[QualityLiteral] = None
     usability: Optional[QualityLiteral] = None
