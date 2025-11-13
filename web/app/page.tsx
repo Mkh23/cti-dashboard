@@ -57,18 +57,17 @@ export default async function HomePage() {
         <section>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
             <h2 className="text-lg font-semibold" id="announcements">
-              Field notes from admins
+              {announcements.length === 0 ? "Notes" : "Notes"}
             </h2>
             {announcements.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-300">
-                No announcements yet. Admins can publish guidance directly from the dashboard.
-              </p>
+              <p className="mt-4 text-sm text-slate-300">No announcements yet.</p>
             ) : (
               <ul className="mt-4 space-y-4 text-sm text-slate-200">
                 {announcements.map((item) => (
                   <li key={item.id} className="rounded-2xl border border-white/10 bg-slate-900/60 p-4">
+                    <h3 className="text-base font-semibold text-white">{item.subject}</h3>
                     <div
-                      className="prose prose-invert max-w-none text-sm"
+                      className="prose prose-invert max-w-none text-sm mt-2"
                       dangerouslySetInnerHTML={{ __html: item.content_html }}
                     />
                     <p className="mt-3 text-xs uppercase tracking-wide text-slate-400">
