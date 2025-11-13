@@ -17,6 +17,7 @@
 - [x] `dev` (default) — iterative development
 - [ ] `prod` — stable clients
 - [ ] Document environment-specific configs in `/docs/env.md`
+- [x] `scripts/prod.sh` helper to run API (8000) + Web (3000) on 0.0.0.0 for staging/single-node prod dry-runs
 
 ### 1.2 Servers & Secrets
 - [x] Linux VM target for API/Web (Dockerized)

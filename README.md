@@ -101,6 +101,19 @@ CORS_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
 
+### Production helper
+
+When you're ready to dry-run a production-style launch on something like `10.10.10.104`, run the prod orchestrator. It builds the Next.js app, applies Alembic migrations, and serves API/Web on `0.0.0.0:${API_PORT}` / `0.0.0.0:${WEB_PORT}` (override via env vars).
+
+```bash
+# Example: expose API 8000 and Web 3000 on 10.10.10.104
+API_HOST=0.0.0.0 API_PORT=8000 \
+WEB_HOST=0.0.0.0 WEB_PORT=3000 \
+./scripts/prod.sh
+```
+
+If you need the helper to bring up the dockerized Postgres as well, export `RUN_DOCKER_DB=true`.
+
 ## API highlights
 
 - Auth & RBAC (`/auth`, `/me`)
