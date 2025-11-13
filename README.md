@@ -128,6 +128,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
 - Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
+- Legacy S3 `meta.json` blobs without the full schema now get sensible defaults (meta version, capture timestamps, capture IDs, probe/firmware info, image pointers) so sync jobs keep flowing instead of erroring out
 - Health & readiness probes (`/healthz`, `/readyz`)
 
 ## Dashboard highlights

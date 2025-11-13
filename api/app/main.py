@@ -6,13 +6,16 @@ from .routers import admin as admin_router
 from .db import engine
 from sqlalchemy import text
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+raw_origins = os.getenv("CORS_ORIGINS", "")
+origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
 app = FastAPI(title="CTI Dashboard API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in CORS_ORIGINS],
+    # allow_origins=[o.strip() for o in CORS_ORIGINS],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

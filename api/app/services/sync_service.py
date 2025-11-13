@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
 
+import jsonschema
 from botocore.exceptions import ClientError, NoCredentialsError
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -88,6 +90,85 @@ def _ensure_trailing_slash(value: str) -> str:
     return value
 
 
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff")
+CAPTURE_ID_PATTERN = re.compile(r"^cap_\d+$")
+
+
+def _pick_image_relpath(objects: List[str]) -> Optional[str]:
+    for obj in objects:
+        if obj.lower().endswith(IMAGE_EXTENSIONS):
+            return obj
+    return objects[0] if objects else None
+
+
+def _apply_ingest_defaults(
+    meta_json: Dict,
+    *,
+    ingest_key: str,
+    objects: List[str],
+) -> Dict:
+    """Backfill missing schema fields for legacy or sparse meta.json blobs."""
+
+    meta_json = dict(meta_json)  # shallow copy so callers can rely on returned dict
+
+    meta_version = meta_json.get("meta_version") or meta_json.get("metaVersion")
+    if meta_version != "1.0.0":
+        meta_version = "1.0.0"
+    meta_json["meta_version"] = meta_version
+
+    capture_id = meta_json.get("capture_id") or meta_json.get("captureId")
+    capture_id = _normalize_capture_id(capture_id, ingest_key)
+    meta_json["capture_id"] = capture_id
+
+    captured_at = (
+        meta_json.get("captured_at")
+        or meta_json.get("capturedAtIso")
+        or meta_json.get("capturedAt")
+    )
+    if not captured_at:
+        captured_at = datetime.utcnow().isoformat() + "Z"
+    meta_json["captured_at"] = captured_at
+
+    device_code = meta_json.get("device_code") or meta_json.get("deviceId") or "unknown-device"
+    meta_json["device_code"] = device_code
+
+    image_sha = meta_json.get("image_sha256") or meta_json.get("imageSha256")
+    if not (isinstance(image_sha, str) and len(image_sha) == 64):
+        image_sha = "0" * 64
+    meta_json["image_sha256"] = image_sha
+
+    files = meta_json.get("files") or {}
+    image_relpath = files.get("image_relpath")
+    if not image_relpath:
+        image_relpath = _pick_image_relpath(objects) or "image.jpg"
+    files["image_relpath"] = image_relpath
+    meta_json["files"] = files
+
+    probe = meta_json.get("probe") or {}
+    probe.setdefault("model", "unknown-probe")
+    probe.setdefault("frequency_mhz", 0)
+    meta_json["probe"] = probe
+
+    firmware = meta_json.get("firmware") or {}
+    firmware.setdefault("app_version", "0.0.0")
+    firmware.setdefault("pi_os", "unknown")
+    meta_json["firmware"] = firmware
+
+    clarity = meta_json.get("clarity")
+    if clarity is None:
+        meta_json["clarity"] = "bad"
+
+    usability = meta_json.get("usability")
+    if usability is None:
+        meta_json["usability"] = "bad"
+
+    for numeric_field in ("IMF", "backfat_thickness", "animal_weight", "ribeye_area"):
+        if meta_json.get(numeric_field) in (None, ""):
+            meta_json[numeric_field] = 0
+
+    return meta_json
+
+
 def sync_scans_from_bucket(
     db: Session,
     *,
@@ -131,9 +212,6 @@ def sync_scans_from_bucket(
             body = response["Body"].read()
             payload_size = len(body)
             meta_json = json.loads(body)
-        except jsonschema.ValidationError as exc:
-            errors.append(f"{meta_key}: schema error - {exc.message}")
-            continue
         except json.JSONDecodeError as exc:
             errors.append(f"{meta_key}: invalid JSON ({exc})")
             continue
@@ -145,6 +223,7 @@ def sync_scans_from_bucket(
         except (ClientError, NoCredentialsError) as exc:  # pragma: no cover - network path
             _raise_aws_error(exc, bucket=bucket, prefix=ingest_key)
 
+        meta_json = _apply_ingest_defaults(meta_json, ingest_key=ingest_key, objects=objects)
         device_code = meta_json.get("device_code") or "unknown-device"
         result = ingest_scan_from_payload(
             db,
@@ -182,3 +261,24 @@ def sync_scans_from_bucket(
         "errors": errors,
         "synced_ingest_keys": len(synced_ingest),
     }
+def _normalize_capture_id(value: Optional[str], ingest_key: str) -> str:
+    if isinstance(value, str) and CAPTURE_ID_PATTERN.match(value):
+        return value
+
+    candidate = None
+    if isinstance(value, str):
+        digits = re.findall(r"\d+", value)
+        if digits:
+            candidate = digits[0]
+
+    if not candidate:
+        last_segment = ingest_key.rstrip("/").split("/")[-1]
+        if last_segment.startswith("cap_") and last_segment[4:].isdigit():
+            candidate = last_segment[4:]
+        elif last_segment.isdigit():
+            candidate = last_segment
+
+    if not candidate:
+        candidate = str(int(datetime.utcnow().timestamp()))
+
+    return f"cap_{candidate}"

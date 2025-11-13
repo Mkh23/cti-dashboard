@@ -82,6 +82,7 @@
 - [x] Local test harness to simulate S3 → Lambda → webhook flow (`scripts/test_webhook_hmac.py`)
 - [x] Basic test images with meta.json templates (`tests/test_ingestion_e2e.py`)
 - [ ] S3 event notification simulator
+- [x] Admin scan sync now normalizes sparse/legacy `meta.json` blobs with sensible defaults so schema validation no longer blocks AWS backfills
 
 **DoD (Ingest):**
 - [ ] Uploading a file under `raw/.../cap_xxx/` leads to a `scans + assets` row within 5s

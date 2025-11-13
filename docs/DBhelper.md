@@ -37,6 +37,21 @@ PY
 -- set a new password for the admin user
 UPDATE users SET password_hash = '$2b$12$KhSFkdSqhauDI2xWVnDcAOMJ5IlAypmmTluJHLSLqtQ7XPcOMYBIa' WHERE email = 'admin@example.com';
 
+
+python - <<'PY'
+from passlib.context import CryptContext
+pwd = CryptContext(schemes=['bcrypt'], deprecated='auto')
+print(pwd.hash('Mati@2322'))
+PY
+
+UPDATE users SET password_hash = '$2b$12$Ao2jK/IJAAJsBJG58DsZ4uQUnAP2U6OVt.W/UTzM88rB45VQzW8Z6' WHERE email = 'khalgh.m@gmail.com';
+
+
+UPDATE users
+SET hashed_password = '$2b$12$Ao2jK/IJAAJsBJG58DsZ4uQUnAP2U6OVt.W/UTzM88rB45VQzW8Z6'
+WHERE email = 'khalgh.m@gmail.com';
+
+
 # manually create admin through API
 
 curl -X POST http://localhost:8000/auth/register \
