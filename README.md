@@ -130,6 +130,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Cattle farm/birth-date edits now cascade to animals so cattle/animal detail pages show updated farm and birth data; animal scan links respect role-specific scan paths to avoid 404s
 - Cattle updates now propagate farm + birth date to animals/scans; animal/cattle forms toggle between register/edit states based on context
 - Fixed Animals form toggle (show/hide) so it initializes correctly when editing
+- Added Geofence builder stub page per farm; store your province .gpkg/.geojson files outside git (e.g., `resources/geofence/`) and wire a backend endpoint to feed the map
 - Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
 - Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook

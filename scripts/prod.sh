@@ -38,6 +38,10 @@ if [[ ! -f ".env" ]]; then
   exit 1
 fi
 export $(grep -E '^[A-Z_]+=' .env | xargs)
+# Load OpenCage key from resources if not already set
+if [ -z "${OPENCAGE_API_KEY:-}" ] && [ -f "${ROOT_DIR}/resources/geofence/opencage_api_key" ]; then
+  export OPENCAGE_API_KEY="$(cat "${ROOT_DIR}/resources/geofence/opencage_api_key")"
+fi
 
 echo "[prod] running Alembic migrations..."
 alembic upgrade head

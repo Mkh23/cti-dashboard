@@ -248,6 +248,7 @@
 - [x] Cattle birth-date + farm changes cascade into animals; animal scan links are role-aware to avoid 404s
 - [x] Cattle updates refresh animal birth/farm, and UI forms clearly switch between register/edit states for animals and cattle
 - [x] Animals form toggle fixed (show/hide) with proper state initialization
+- [x] Farm geofence builder stub added; expects province geofence datasets (e.g., alberta.gpkg) stored outside git in `resources/geofence/`
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 

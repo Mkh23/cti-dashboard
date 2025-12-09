@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, me, webhooks, scans, s3_admin, farms, cattle, animals, announcements
+from .routers import auth, me, webhooks, scans, s3_admin, farms, cattle, animals, announcements, geocode
 from .routers import admin as admin_router
 from .db import engine
 from sqlalchemy import text
@@ -31,6 +31,7 @@ app.include_router(animals.router, prefix="/animals", tags=["animals"])
 app.include_router(announcements.router, tags=["announcements"])
 app.include_router(webhooks.router, prefix="/ingest", tags=["ingest"])
 app.include_router(s3_admin.router)
+app.include_router(geocode.router, tags=["geocode"])
 
 @app.get("/healthz")
 def healthz():

@@ -446,10 +446,18 @@ export default function FarmDetailPage() {
 
       <section className="card space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">GPS / Geofence</h2>
-          <span className="text-sm text-gray-400">
-            Used to auto-route ingested scans by GPS; admins and owners can edit.
-          </span>
+          <div>
+            <h2 className="text-xl font-semibold">GPS / Geofence</h2>
+            <span className="text-sm text-gray-400">
+              Used to auto-route ingested scans by GPS; admins and owners can edit.
+            </span>
+          </div>
+          <Link
+            href={`/dashboard/farms/${farmId}/geofence`}
+            className="rounded-md border border-blue-500 px-3 py-2 text-sm text-blue-100 hover:bg-blue-500/10"
+          >
+            Geofence builder
+          </Link>
         </div>
         {geoError && (
           <div className="rounded-md border border-red-500 bg-red-900/20 p-3 text-sm text-red-200">

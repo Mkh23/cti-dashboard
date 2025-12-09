@@ -48,8 +48,8 @@ fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
-# install deps if missing wheels (no-op if already installed)
-pip show fastapi >/dev/null 2>&1 || pip install -r requirements.txt
+# install deps (idempotent) so newly added packages like requests are present
+pip install -r requirements.txt >/dev/null
 
 # Ensure .env has DATABASE_URL (if missing, inject default)
 if ! grep -q '^DATABASE_URL=' .env 2>/dev/null; then
@@ -61,6 +61,10 @@ export $(grep -E '^[A-Z_]+=' .env | xargs)
 
 # Fallback if .env didn't define it
 export DATABASE_URL="${DATABASE_URL:-$DATABASE_URL_DEFAULT}"
+# Load OpenCage key from resources if not already set
+if [ -z "${OPENCAGE_API_KEY:-}" ] && [ -f "${ROOT_DIR}/resources/geofence/opencage_api_key" ]; then
+  export OPENCAGE_API_KEY="$(cat "${ROOT_DIR}/resources/geofence/opencage_api_key")"
+fi
 
 echo "[dev] running alembic migrations against: ${DATABASE_URL}"
 alembic upgrade head
