@@ -51,7 +51,11 @@ fuser -k 8000/tcp >/dev/null 2>&1 || true
 echo "[prod] starting API (uvicorn, 0.0.0.0:8000)"
 (
   cd "$API_DIR"
-  source .venv/bin/activate
+    source .venv/bin/activate
+  # load API env
+  if [ -f "$API_DIR/.env" ]; then
+    export $(grep -E '^[A-Z_]+=' "$API_DIR/.env" | xargs)
+  fi
   # You can adjust workers or reload options here if needed
   uvicorn app.main:app --host 0.0.0.0 --port 8000
 ) >"$ROOT/.logs/api.prod.log" 2>&1 & echo $! > "$ROOT/.pids/api.prod.pid"

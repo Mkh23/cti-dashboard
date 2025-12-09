@@ -1,7 +1,7 @@
 // web/lib/api.ts
 
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+  process.env.INTERNAL_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
 
 export type RegistrationStatus = "pending" | "approved" | "rejected";
 
