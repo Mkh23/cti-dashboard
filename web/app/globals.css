@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@import "leaflet/dist/leaflet.css";
 
 :root { color-scheme: light dark; }
 body { @apply bg-gray-950 text-gray-100; }

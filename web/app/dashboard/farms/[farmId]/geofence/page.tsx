@@ -123,7 +123,7 @@ export default function FarmGeofenceBuilder() {
     (async () => {
       if (leaflet) return;
       const L = await import("leaflet");
-      await import("leaflet/dist/leaflet.css");
+      // await import("leaflet/dist/leaflet.css");
       // Fix default icon paths when bundled by Next.js
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
