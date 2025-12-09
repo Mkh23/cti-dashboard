@@ -28,6 +28,9 @@ export default function AnimalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState({ farm_id: "", cattle_id: "", tag: "" });
   const [form, setForm] = useState({
     tag_id: "",
     rfid: "",
@@ -49,7 +52,11 @@ export default function AnimalsPage() {
         me(token),
         listFarms(token),
         listCattle(token),
-        listAnimals(token),
+        listAnimals(token, {
+          farm_id: filters.farm_id || undefined,
+          cattle_id: filters.cattle_id || undefined,
+          tag: filters.tag || undefined,
+        }),
       ]);
       setProfile(profileResp);
       setFarms(farmsResp);
@@ -61,7 +68,7 @@ export default function AnimalsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     void loadData();
@@ -156,131 +163,226 @@ export default function AnimalsPage() {
       )}
 
       {canManage && (
-        <section className="card space-y-4">
-          <h2 className="text-xl font-semibold text-white">
-            {editingId ? "Update animal" : "Register animal"}
-          </h2>
-          <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-tag">
-                Tag ID *
-              </label>
-              <input
-                id="animal-tag"
-                type="text"
-                value={form.tag_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, tag_id: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-rfid">
-                Animal RFID
-              </label>
-              <input
-                id="animal-rfid"
-                type="text"
-                value={form.rfid}
-                onChange={(e) => setForm((prev) => ({ ...prev, rfid: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="RFID value"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-breed">
-                Breed
-              </label>
-              <input
-                id="animal-breed"
-                type="text"
-                value={form.breed}
-                onChange={(e) => setForm((prev) => ({ ...prev, breed: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-sex">
-                Sex
-              </label>
-              <input
-                id="animal-sex"
-                type="text"
-                value={form.sex}
-                onChange={(e) => setForm((prev) => ({ ...prev, sex: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-born">
-                Birth date
-              </label>
-              <input
-                id="animal-born"
-                type="date"
-                value={form.born_date}
-                onChange={(e) => setForm((prev) => ({ ...prev, born_date: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-farm">
-                Farm
-              </label>
-              <select
-                id="animal-farm"
-                value={preferredFarmId}
-                onChange={(e) => setForm((prev) => ({ ...prev, farm_id: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Unassigned</option>
-                {farms.map((farm) => (
-                  <option key={farm.id} value={farm.id}>
-                    {farm.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm text-gray-400" htmlFor="animal-cattle">
-                Cattle
-              </label>
-              <select
-                id="animal-cattle"
-                value={form.cattle_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, cattle_id: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Unassigned</option>
-                {cattle.map((herd) => (
-                  <option key={herd.id} value={herd.id}>
-                    {herd.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2 flex justify-end">
-              {editingId && (
+        <section className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Filter animals</h2>
+            <button
+              type="button"
+              className="rounded-md border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+            >
+              {filtersOpen ? "Hide" : "Show"}
+            </button>
+          </div>
+          {filtersOpen && (
+            <>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="text-sm text-gray-400" htmlFor="filter-farm">Farm</label>
+                  <select
+                    id="filter-farm"
+                    value={filters.farm_id}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, farm_id: e.target.value }))}
+                    className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All</option>
+                    {farms.map((farm) => (
+                      <option key={farm.id} value={farm.id}>
+                        {farm.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-400" htmlFor="filter-cattle">Cattle</label>
+                  <select
+                    id="filter-cattle"
+                    value={filters.cattle_id}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, cattle_id: e.target.value }))}
+                    className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All</option>
+                    {cattle.map((herd) => (
+                      <option key={herd.id} value={herd.id}>
+                        {herd.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-400" htmlFor="filter-tag">Tag contains</label>
+                  <input
+                    id="filter-tag"
+                    type="text"
+                    value={filters.tag}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, tag: e.target.value }))}
+                    placeholder="RFID-123"
+                    className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={() => {
-                    resetForm();
-                    setEditingId(null);
-                  }}
-                  className="mr-3 rounded-md border border-gray-600 px-6 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                  onClick={() => void loadData()}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500"
                 >
-                  Cancel
+                  Apply filters
                 </button>
-              )}
-              <button
-                type="submit"
-                disabled={saving || !form.tag_id.trim()}
-                className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? "Saving..." : editingId ? "Update animal" : "Save animal"}
-              </button>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {canManage && (
+        <section className="card space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">
+                {editingId ? "Edit animal" : "Register animal"}
+              </h2>
+              <p className="text-sm text-gray-500">Create new animals or edit an existing one.</p>
             </div>
-          </form>
+            <button
+              type="button"
+              onClick={() => {
+                setFormOpen((prev) => !prev);
+                if (formOpen) {
+                  resetForm();
+                  setEditingId(null);
+                }
+              }}
+              className="rounded-md border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800"
+            >
+              {formOpen ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          {formOpen && (
+            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-tag">
+                  Tag ID *
+                </label>
+                <input
+                  id="animal-tag"
+                  type="text"
+                  value={form.tag_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, tag_id: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-rfid">
+                  Animal RFID
+                </label>
+                <input
+                  id="animal-rfid"
+                  type="text"
+                  value={form.rfid}
+                  onChange={(e) => setForm((prev) => ({ ...prev, rfid: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="RFID value"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-breed">
+                  Breed
+                </label>
+                <input
+                  id="animal-breed"
+                  type="text"
+                  value={form.breed}
+                  onChange={(e) => setForm((prev) => ({ ...prev, breed: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-sex">
+                  Sex
+                </label>
+                <input
+                  id="animal-sex"
+                  type="text"
+                  value={form.sex}
+                  onChange={(e) => setForm((prev) => ({ ...prev, sex: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-born">
+                  Birth date
+                </label>
+                <input
+                  id="animal-born"
+                  type="date"
+                  value={form.born_date}
+                  onChange={(e) => setForm((prev) => ({ ...prev, born_date: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-farm">
+                  Farm
+                </label>
+                <select
+                  id="animal-farm"
+                  value={preferredFarmId}
+                  onChange={(e) => setForm((prev) => ({ ...prev, farm_id: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Unassigned</option>
+                  {farms.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="animal-cattle">
+                  Cattle
+                </label>
+                <select
+                  id="animal-cattle"
+                  value={form.cattle_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, cattle_id: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Unassigned</option>
+                  {cattle.map((herd) => (
+                    <option key={herd.id} value={herd.id}>
+                      {herd.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2 flex justify-end">
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetForm();
+                      setEditingId(null);
+                      setFormOpen(false);
+                    }}
+                    className="mr-3 rounded-md border border-gray-600 px-6 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={saving || !form.tag_id.trim()}
+                  className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : editingId ? "Update animal" : "Save animal"}
+                </button>
+              </div>
+            </form>
+          )}
         </section>
       )}
 
@@ -307,7 +409,11 @@ export default function AnimalsPage() {
               <tbody className="divide-y divide-gray-800 text-gray-200">
                 {animals.map((animal) => (
                   <tr key={animal.id}>
-                    <td className="px-4 py-3 font-semibold text-white">{animal.tag_id}</td>
+                    <td className="px-4 py-3 font-semibold text-white">
+                      <Link href={`/dashboard/animals/${animal.id}`} className="hover:text-emerald-300">
+                        {animal.tag_id}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-gray-400">{animal.rfid || "—"}</td>
                     <td className="px-4 py-3 text-gray-300">{animal.farm_name || "Unassigned"}</td>
                     <td className="px-4 py-3 text-gray-300">{animal.cattle_name || "Unassigned"}</td>
@@ -329,6 +435,7 @@ export default function AnimalsPage() {
                             farm_id: animal.farm_id || "",
                             cattle_id: animal.cattle_id || "",
                           });
+                          setFormOpen(true);
                         }}
                       >
                         Edit

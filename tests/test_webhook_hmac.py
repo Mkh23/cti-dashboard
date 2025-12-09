@@ -1,29 +1,59 @@
-import os, json, hmac, hashlib, time, requests
+import os, json, hmac, hashlib, time
+from datetime import datetime
+from pathlib import Path
+
+import requests
 
 API_URL = os.environ.get("INGEST_WEBHOOK_URL", "http://localhost:8000/ingest/webhook")
 SECRET  = os.environ.get("HMAC_SECRET", "dev_secret_change_me")
+SAMPLE_DIR = Path(os.environ.get("CTI_SAMPLE_DIR", Path(__file__).resolve().parent / "scan20261208"))
+
+
+def load_sample_payload():
+    meta_path = SAMPLE_DIR / "meta.json"
+    meta = json.loads(meta_path.read_text())
+    image_path = SAMPLE_DIR / meta["files"]["image_relpath"]
+    mask_rel = meta["files"].get("mask_relpath")
+    mask_path = SAMPLE_DIR / mask_rel if mask_rel else None
+    img = image_path.read_bytes()
+    mask = mask_path.read_bytes() if mask_path and mask_path.exists() else None
+    meta["image_sha256"] = hashlib.sha256(img).hexdigest()
+    if mask:
+        meta["mask_sha256"] = hashlib.sha256(mask).hexdigest()
+    return img, mask, meta
 
 def sign(ts: str, body: bytes) -> str:
     return hmac.new(SECRET.encode(), f"{ts}.{body.decode()}".encode(), hashlib.sha256).hexdigest()
 
 def test_webhook_hmac_ok():
+    device_code = os.environ.get("CTI_DEVICE_CODE", "dev-pytest")
+    bucket = os.environ.get("CTI_BUCKET", "cti-dev-406214277746")
+    img, mask, meta_template = load_sample_payload()
+    epoch = int(time.time())
+    cap_id = f"cap_{epoch}"
+    dt = datetime.utcfromtimestamp(epoch)
+    ingest_key = f"raw/{device_code}/{dt:%Y/%m/%d}/{cap_id}/"
+
+    objects = [meta_template["files"]["image_relpath"]]
+    if meta_template["files"].get("mask_relpath"):
+        objects.append(meta_template["files"]["mask_relpath"])
+    objects.append("meta.json")
+
     payload = {
-        "event_id": "evt-pytest",
-        "bucket": os.environ.get("CTI_BUCKET", "cti-dev-406214277746"),
-        "ingest_key": "raw/dev-pytest/2025/10/06/cap_1700000000/meta.json",
-        "device_code": "dev-pytest",
+        "event_id": f"evt-{cap_id}",
+        "bucket": bucket,
+        "ingest_key": ingest_key,
+        "device_code": device_code,
+        "objects": objects,
         "meta_json": {
-            "meta_version":"1.0.0",
-            "device_code":"dev-pytest",
-            "capture_id":"cap_1700000000",
-            "captured_at":"2025-10-06T16:15:00Z",
-            "files":{"image_relpath":"image.jpg","mask_relpath":"mask.png"},
-            "image_sha256":"0"*64,
-            "mask_sha256":"1"*64,
-            "probe":{"model":"linear-5-10"},
-            "firmware":{"app_version":"rpi-ultra-0.1.0"}
+            **meta_template,
+            "device_code": device_code,
+            "capture_id": cap_id,
+            "captured_at": dt.replace(microsecond=0).isoformat() + "Z",
         },
-        "etag":"abc123","size_bytes":123,"event_time":"2025-10-06T16:15:05Z"
+        "etag": "abc123",
+        "size_bytes": len(img) + (len(mask) if mask else 0),
+        "event_time": dt.replace(microsecond=0).isoformat() + "Z",
     }
     body = json.dumps(payload, separators=(",",":")).encode()
     ts = str(int(time.time()))

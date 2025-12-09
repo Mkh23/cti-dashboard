@@ -1,21 +1,39 @@
 #!/usr/bin/env python3
-import os, json, time, datetime, hashlib, tempfile, pathlib, boto3
+import datetime
+import hashlib
+import json
+import os
+import pathlib
+import tempfile
+import time
+
+import boto3
 
 BUCKET = os.environ.get("CTI_BUCKET", "cti-dev-406214277746")
 REGION = os.environ.get("AWS_REGION", "ca-central-1")
 DEVICE = os.environ.get("CTI_DEVICE", "dev-smoke-123")
+SAMPLE_DIR = pathlib.Path(os.environ.get("CTI_SAMPLE_DIR", pathlib.Path(__file__).resolve().parents[1] / "tests" / "scan20261208"))
 
-def tiny_bytes(kind):
-    if kind == "jpg":
-        return b"\xff\xd8\xff\xd9"  # minimal marker-only JPEG, fine for smoke
-    if kind == "png":
-        return bytes.fromhex("89504e470d0a1a0a0000000049454e44ae426082")
-    raise ValueError
 
 def sha256(b): return hashlib.sha256(b).hexdigest()
 
+
+def load_sample_assets():
+    meta_path = SAMPLE_DIR / "meta.json"
+    meta = json.loads(meta_path.read_text())
+    image_path = SAMPLE_DIR / meta["files"]["image_relpath"]
+    mask_rel = meta["files"].get("mask_relpath")
+    mask_path = SAMPLE_DIR / mask_rel if mask_rel else None
+
+    img = image_path.read_bytes()
+    mask = mask_path.read_bytes() if mask_path and mask_path.exists() else None
+
+    meta["image_sha256"] = sha256(img)
+    if mask:
+        meta["mask_sha256"] = sha256(mask)
+    return img, mask, meta
+
 def main():
-    # at the top of main(), replace the client construction:
     PROFILE = os.environ.get("CTI_AWS_PROFILE") or os.environ.get("AWS_PROFILE")
     print("Using profile:", PROFILE, "region:", REGION)
     session = boto3.Session(profile_name=PROFILE, region_name=REGION) if PROFILE else boto3.Session(region_name=REGION)
@@ -26,29 +44,29 @@ def main():
     dt = datetime.datetime.utcfromtimestamp(epoch)
     prefix = f"raw/{DEVICE}/{dt:%Y/%m/%d}/{cap_id}/"
 
-    img = tiny_bytes("jpg")
-    msk = tiny_bytes("png")
+    img, msk, sample_meta = load_sample_assets()
     meta = {
-        "meta_version":"1.0.0",
-        "device_code":DEVICE,
-        "capture_id":cap_id,
-        "captured_at":dt.replace(microsecond=0).isoformat()+"Z",
-        "files":{"image_relpath":"image.jpg","mask_relpath":"mask.png"},
-        "image_sha256":sha256(img),
-        "mask_sha256":sha256(msk),
-        "probe":{"model":"linear-5-10"},
-        "firmware":{"app_version":"rpi-ultra-0.1.0"}
+        **sample_meta,
+        "device_code": DEVICE,
+        "capture_id": cap_id,
+        "captured_at": dt.replace(microsecond=0).isoformat() + "Z",
     }
 
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
-        (td/"image.jpg").write_bytes(img)
-        (td/"mask.png").write_bytes(msk)
+        image_name = meta["files"]["image_relpath"]
+        mask_name = meta["files"].get("mask_relpath")
+        (td / image_name).write_bytes(img)
+        if msk and mask_name:
+            (td / mask_name).write_bytes(msk)
         (td/"meta.json").write_text(json.dumps(meta, separators=(",",":")))
-        s3.put_object(Bucket=BUCKET, Key=prefix+"image.jpg", Body=img, ContentType="image/jpeg")
-        s3.put_object(Bucket=BUCKET, Key=prefix+"mask.png",  Body=msk, ContentType="image/png")
+        image_key = prefix + image_name
+        s3.put_object(Bucket=BUCKET, Key=image_key, Body=img, ContentType="image/jpeg" if image_key.lower().endswith(".jpg") else "image/png")
+        if msk and mask_name:
+            mask_key = prefix + mask_name
+            s3.put_object(Bucket=BUCKET, Key=mask_key,  Body=msk, ContentType="image/png")
         s3.put_object(Bucket=BUCKET, Key=prefix+"meta.json", Body=json.dumps(meta).encode(), ContentType="application/json")
-    print("Uploaded:", f"s3://{BUCKET}/{prefix}(image.jpg, mask.png, meta.json)")
+    print("Uploaded:", f"s3://{BUCKET}/{prefix}({meta['files']['image_relpath']}, {meta['files'].get('mask_relpath')}, meta.json)")
 
 if __name__ == "__main__":
     main()

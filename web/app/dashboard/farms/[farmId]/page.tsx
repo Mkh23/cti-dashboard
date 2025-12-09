@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   addFarmMember,
   getFarm,
+  getFarmCattle,
   me,
   removeFarmMember,
   updateFarm,
@@ -18,11 +19,17 @@ import {
 export default function FarmDetailPage() {
   const params = useParams<{ farmId: string }>();
   const farmId = params?.farmId;
+  const DEFAULT_LAT = 49.2827;
+  const DEFAULT_LON = -123.1207;
+  const DEFAULT_RADIUS = 150;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [farm, setFarm] = useState<Farm | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [memberInput, setMemberInput] = useState("");
+  const [geoLat, setGeoLat] = useState<number | string>("");
+  const [geoLon, setGeoLon] = useState<number | string>("");
+  const [geoRadius, setGeoRadius] = useState<number | string>(DEFAULT_RADIUS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [memberActionLoading, setMemberActionLoading] = useState(false);
@@ -30,6 +37,9 @@ export default function FarmDetailPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [memberStatus, setMemberStatus] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [cattle, setCattle] = useState<Array<{ id: string; name: string; external_id?: string | null; born_date?: string | null }> | null>(null);
+  const [geoStatus, setGeoStatus] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const loadFarm = useCallback(async () => {
     if (!farmId) return;
@@ -37,6 +47,8 @@ export default function FarmDetailPage() {
     setStatus(null);
     setMemberStatus(null);
     setMemberError(null);
+    setGeoError(null);
+    setGeoStatus(null);
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not logged in");
@@ -44,9 +56,14 @@ export default function FarmDetailPage() {
         me(token),
         getFarm(token, farmId),
       ]);
+      const cattleData = await getFarmCattle(token, farmId).catch(() => []);
       setProfile(profileData);
       setFarm(farmData);
+      setCattle(cattleData);
       setNameInput(farmData.name);
+      setGeoLat(farmData.centroid?.lat ?? DEFAULT_LAT);
+      setGeoLon(farmData.centroid?.lon ?? DEFAULT_LON);
+      setGeoRadius(DEFAULT_RADIUS);
       setError(null);
     } catch (err: any) {
       setError(err?.message || "Failed to load farm");
@@ -134,6 +151,41 @@ export default function FarmDetailPage() {
     }
   };
 
+  const handleUpdateGeofence = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!farmId || !farm?.can_edit) return;
+
+    const lat = Number(geoLat);
+    const lon = Number(geoLon);
+    const radius = Number(geoRadius);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(radius) || radius <= 0) {
+      setGeoError("Enter valid latitude, longitude, and a positive radius in meters.");
+      return;
+    }
+
+    setGeoError(null);
+    setGeoStatus(null);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not logged in");
+      const updated = await updateFarm(token, farmId, {
+        geofence: { lat, lon, radius_m: radius },
+      });
+      setFarm(updated);
+      setGeoLat(updated.centroid?.lat ?? lat);
+      setGeoLon(updated.centroid?.lon ?? lon);
+      setGeoStatus("Geofence updated for GPS-based ingest routing.");
+    } catch (err: any) {
+      setGeoError(err?.message || "Failed to update geofence");
+    }
+  };
+
+  const applyTestGeofence = () => {
+    setGeoLat(DEFAULT_LAT);
+    setGeoLon(DEFAULT_LON);
+    setGeoRadius(DEFAULT_RADIUS);
+  };
+
   if (loading) {
     return (
       <main className="p-6">
@@ -215,6 +267,37 @@ export default function FarmDetailPage() {
         <p className="text-sm text-gray-400">
           {ownerNames.length ? ownerNames.join(", ") : "No owners assigned"}
         </p>
+      </section>
+
+      <section className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Cattle in this farm</h2>
+          {cattle && (
+            <span className="text-sm text-gray-400">{cattle.length} total</span>
+          )}
+        </div>
+        {!cattle || cattle.length === 0 ? (
+          <p className="text-sm text-gray-500">No cattle assigned to this farm.</p>
+        ) : (
+          <div className="space-y-2">
+            {cattle.map((herd) => (
+              <div key={herd.id} className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-900/40 px-4 py-3">
+                <div>
+                  <div className="text-white font-semibold">{herd.name}</div>
+                  <div className="text-xs text-gray-500">
+                    External ID: {herd.external_id ?? "—"} {herd.born_date ? `• Born ${herd.born_date}` : ""}
+                  </div>
+                </div>
+                <Link
+                  href={`/dashboard/cattle/${herd.id}`}
+                  className="text-sm text-blue-400 hover:underline"
+                >
+                  View cattle
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="card space-y-4">
@@ -356,6 +439,92 @@ export default function FarmDetailPage() {
               className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">GPS / Geofence</h2>
+          <span className="text-sm text-gray-400">
+            Used to auto-route ingested scans by GPS; admins and owners can edit.
+          </span>
+        </div>
+        {geoError && (
+          <div className="rounded-md border border-red-500 bg-red-900/20 p-3 text-sm text-red-200">
+            {geoError}
+          </div>
+        )}
+        {geoStatus && (
+          <div className="rounded-md border border-emerald-500 bg-emerald-900/20 p-3 text-sm text-emerald-200">
+            {geoStatus}
+          </div>
+        )}
+        <p className="text-sm text-gray-400">
+          {farm.geofence_exists
+            ? `Current centroid: ${farm.centroid?.lat?.toFixed(4) ?? "—"}, ${farm.centroid?.lon?.toFixed(4) ?? "—"}`
+            : "No geofence set yet. Apply the test coordinates below to seed GPS routing."}
+        </p>
+        <form onSubmit={handleUpdateGeofence} className="grid gap-3 md:grid-cols-4 md:items-end">
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-sm font-medium text-gray-300" htmlFor="geo-lat">
+              Latitude
+            </label>
+            <input
+              id="geo-lat"
+              type="number"
+              value={geoLat}
+              onChange={(event) => setGeoLat(event.target.value)}
+              step="0.0001"
+              className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!farm.can_edit}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-sm font-medium text-gray-300" htmlFor="geo-lon">
+              Longitude
+            </label>
+            <input
+              id="geo-lon"
+              type="number"
+              value={geoLon}
+              onChange={(event) => setGeoLon(event.target.value)}
+              step="0.0001"
+              className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!farm.can_edit}
+            />
+          </div>
+          <div className="md:col-span-1">
+            <label className="mb-1 block text-sm font-medium text-gray-300" htmlFor="geo-radius">
+              Radius (m)
+            </label>
+            <input
+              id="geo-radius"
+              type="number"
+              value={geoRadius}
+              onChange={(event) => setGeoRadius(event.target.value)}
+              step="10"
+              min={10}
+              className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!farm.can_edit}
+            />
+          </div>
+          <div className="flex flex-col gap-2 md:col-span-1">
+            <button
+              type="button"
+              onClick={applyTestGeofence}
+              className="rounded-md border border-blue-500 px-4 py-2 text-sm text-blue-100 hover:bg-blue-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!farm.can_edit}
+            >
+              Use test GPS
+            </button>
+            <button
+              type="submit"
+              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!farm.can_edit}
+            >
+              Save geofence
             </button>
           </div>
         </form>

@@ -249,6 +249,7 @@ export type Scan = {
   clarity?: ScanQuality | null;
   usability?: ScanQuality | null;
   label?: string | null;
+  grading?: string | null;
 };
 
 export type ScanDetail = Scan & {
@@ -407,6 +408,17 @@ export type FarmMember = {
   is_owner: boolean;
 };
 
+export type GeoPoint = {
+  lat: number;
+  lon: number;
+};
+
+export type FarmGeofencePayload = {
+  lat: number;
+  lon: number;
+  radius_m?: number;
+};
+
 export type Farm = {
   id: string;
   name: string;
@@ -415,6 +427,11 @@ export type Farm = {
   owners: FarmOwner[];
   members: FarmMember[];
   can_edit: boolean;
+  /**
+   * Optional centroid (lat/lon) used to auto-route ingest by GPS.
+   */
+  centroid?: GeoPoint | null;
+  geofence_exists?: boolean;
 };
 
 export type Cattle = {
@@ -440,6 +457,23 @@ export type Animal = {
   cattle_id?: string | null;
   cattle_name?: string | null;
   created_at: string;
+};
+
+export type AnimalScan = {
+  id: string;
+  capture_id: string;
+  label?: string | null;
+  created_at: string;
+  grading?: string | null;
+  latest_model?: string | null;
+  latest_version?: string | null;
+  latest_confidence?: number | null;
+  imf?: number | null;
+  backfat_thickness?: number | null;
+  animal_weight?: number | null;
+  ribeye_area?: number | null;
+  image_url?: string | null;
+  image_key?: string | null;
 };
 
 export type Device = {
@@ -469,7 +503,7 @@ export async function listFarms(token: string) {
 
 export async function createFarm(
   token: string,
-  data: { name: string; owner_ids?: string[] }
+  data: { name: string; owner_ids?: string[]; geofence?: FarmGeofencePayload }
 ) {
   const res = await fetch(`${API_BASE}/farms`, {
     method: "POST",
@@ -486,8 +520,18 @@ export async function createFarm(
   return res.json() as Promise<Farm>;
 }
 
-export async function listCattle(token: string) {
-  const res = await fetch(`${API_BASE}/cattle`, {
+export async function listCattle(
+  token: string,
+  farmId?: string,
+  options?: { born_from?: string; born_to?: string; name?: string }
+) {
+  const query = new URLSearchParams();
+  if (farmId) query.set("farm_id", farmId);
+  if (options?.born_from) query.set("born_from", options.born_from);
+  if (options?.born_to) query.set("born_to", options.born_to);
+  if (options?.name) query.set("name", options.name);
+  const qs = query.toString();
+  const res = await fetch(`${API_BASE}/cattle${qs ? `?${qs}` : ""}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -537,8 +581,16 @@ export async function updateCattle(
   return res.json() as Promise<Cattle>;
 }
 
-export async function listAnimals(token: string) {
-  const res = await fetch(`${API_BASE}/animals`, {
+export async function listAnimals(
+  token: string,
+  params?: { farm_id?: string; cattle_id?: string; tag?: string }
+) {
+  const query = new URLSearchParams();
+  if (params?.farm_id) query.set("farm_id", params.farm_id);
+  if (params?.cattle_id) query.set("cattle_id", params.cattle_id);
+  if (params?.tag) query.set("tag", params.tag);
+  const qs = query.toString();
+  const res = await fetch(`${API_BASE}/animals${qs ? `?${qs}` : ""}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
@@ -615,6 +667,66 @@ export async function deleteAnimal(token: string, animalId: string) {
   }
 }
 
+export async function getAnimal(token: string, animalId: string) {
+  const res = await fetch(`${API_BASE}/animals/${animalId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch animal");
+  }
+  return res.json() as Promise<Animal>;
+}
+
+export async function getAnimalScans(token: string, animalId: string) {
+  const res = await fetch(`${API_BASE}/animals/${animalId}/scans`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch animal scans");
+  }
+  return res.json() as Promise<AnimalScan[]>;
+}
+
+export async function getCattle(token: string, cattleId: string) {
+  const res = await fetch(`${API_BASE}/cattle/${cattleId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch cattle");
+  }
+  return res.json() as Promise<Cattle>;
+}
+
+export async function getCattleAnimals(token: string, cattleId: string) {
+  const res = await fetch(`${API_BASE}/cattle/${cattleId}/animals`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch cattle animals");
+  }
+  return res.json() as Promise<Animal[]>;
+}
+
+export async function getFarmCattle(token: string, farmId: string) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}/cattle`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to fetch farm cattle");
+  }
+  return res.json() as Promise<Array<{ id: string; name: string; external_id?: string | null; born_date?: string | null }>>;
+}
+
 export async function getFarm(token: string, farmId: string) {
   const res = await fetch(`${API_BASE}/farms/${farmId}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -630,7 +742,7 @@ export async function getFarm(token: string, farmId: string) {
 export async function updateFarm(
   token: string,
   farmId: string,
-  data: { name?: string; owner_ids?: string[] }
+  data: { name?: string; owner_ids?: string[]; geofence?: FarmGeofencePayload }
 ) {
   const res = await fetch(`${API_BASE}/farms/${farmId}`, {
     method: "PUT",

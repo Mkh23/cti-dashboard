@@ -361,6 +361,7 @@ s3://cti-dev-406214277746/raw/dev-0001/2025/09/09/cap_1757423584/
   "image_sha256": "2f1a...<64 hex>",
   "mask_sha256": null,
   "files": { "image_relpath": "image.jpg", "mask_relpath": null, "extra": [] },
+  "grading": "auto-seeded",
   "inference_summary": { "ribeye_bbox": [120, 88, 420, 300], "mask_iou_hint": 0.76 }
 }
 ```

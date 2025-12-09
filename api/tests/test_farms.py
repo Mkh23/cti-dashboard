@@ -1,7 +1,8 @@
 """Tests for farm access and management endpoints."""
 import pytest
+from sqlalchemy import func
 
-from app.models import Role, User, UserRole, RegistrationStatus
+from app.models import Role, User, UserRole, RegistrationStatus, Farm
 from app.security import hash_password
 
 
@@ -148,6 +149,43 @@ def test_owner_can_update_farm_name(client, farmer_token, farmer_user):
     )
     assert update_resp.status_code == 200
     assert update_resp.json()["name"] == "New Name"
+
+
+def test_admin_can_set_geofence(client, admin_token, test_db):
+    """Admins can attach a centroid/geofence used for GPS-based ingest routing."""
+    create_resp = client.post(
+        "/farms",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"name": "Geo Farm"},
+    )
+    assert create_resp.status_code == 200
+    farm_id = create_resp.json()["id"]
+
+    update_resp = client.put(
+        f"/farms/{farm_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={
+            "geofence": {
+                "lat": 49.2827,
+                "lon": -123.1207,
+                "radius_m": 150
+            }
+        },
+    )
+    assert update_resp.status_code == 200
+    body = update_resp.json()
+    assert body["geofence_exists"] is True
+    assert body["centroid"] == {"lat": pytest.approx(49.2827), "lon": pytest.approx(-123.1207)}
+
+    db = test_db()
+    try:
+        farm = db.query(Farm).filter(Farm.id == farm_id).one()
+        geofence_wkt = db.scalar(func.ST_AsText(farm.geofence))
+        centroid_wkt = db.scalar(func.ST_AsText(farm.centroid))
+        assert geofence_wkt.startswith("POLYGON((")
+        assert centroid_wkt.startswith("POINT(")
+    finally:
+        db.close()
 
 
 def test_admin_can_update_owners(client, admin_token, farmer_user, technician_user):

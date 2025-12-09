@@ -1,0 +1,23 @@
+{
+  "image_png_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAuMBg5n2f2kAAAAASUVORK5CYII=",
+  "mask_png_base64": "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP8z/D/PwMDAwMjAAMABXcCFhYt87wAAAAASUVORK5CYII=",
+  "meta_defaults": {
+    "operator_id": "op-dashboard-test",
+    "farm_id": "farm-dashboard-test",
+    "gps": { "lat": 49.2827, "lon": -123.1207 },
+    "probe": { "model": "SonoSite iViz", "frequency_mhz": 5.0 },
+    "firmware": { "pi_os": "Bookworm-2025-11-01", "app_version": "1.4.2" },
+    "files": { "image_relpath": "image.png", "mask_relpath": "mask.png", "extra": ["meta.json"] },
+    "clarity": "good",
+    "usability": "medium",
+    "label": "QA Sample Ingest",
+    "IMF": 3.2,
+    "backfat_thickness": 0.85,
+    "animal_weight": 620,
+    "ribeye_area": 85.4,
+    "Animal_RFID": "RFID-123-456-789",
+    "cattle_ID": "cattle-001",
+    "inference_summary": { "ribeye_bbox": [120, 88, 420, 300], "mask_iou_hint": 0.92 },
+    "grading": "AAA"
+  }
+}

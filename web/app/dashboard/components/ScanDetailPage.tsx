@@ -285,6 +285,10 @@ export default function ScanDetailPage({ role }: { role: Role }) {
               <dt className="text-gray-400">Created</dt>
               <dd>{formatDateTime(scan.created_at)}</dd>
             </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-gray-400">Reported grading</dt>
+              <dd className="font-semibold">{scan.grading ?? "Not provided"}</dd>
+            </div>
           </dl>
         </div>
 
@@ -304,8 +308,10 @@ export default function ScanDetailPage({ role }: { role: Role }) {
               </div>
               <div>Completed: {formatDateTime(scan.latest_grading.created_at)}</div>
             </div>
+          ) : scan.grading ? (
+            <p className="text-sm text-emerald-200">Reported: {scan.grading}</p>
           ) : (
-            <p className="text-sm text-gray-400">No grading results yet.</p>
+            <p className="text-sm text-gray-400">Awaiting grading</p>
           )}
         </div>
       </section>

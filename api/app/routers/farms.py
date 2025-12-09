@@ -1,13 +1,16 @@
+import math
 from datetime import datetime
 from typing import Dict, List, Optional, Set
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr, constr, root_validator
+from geoalchemy2 import WKTElement
+from pydantic import BaseModel, EmailStr, confloat, conint, constr, root_validator
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
-from ..models import Farm, Role, User, UserFarm, UserRole
+from ..models import Farm, Role, User, UserFarm, UserRole, Cattle
 from .me import get_current_user
 
 router = APIRouter()
@@ -53,6 +56,24 @@ def fetch_roles_for_users(db: Session, user_ids: Set[UUID]) -> Dict[UUID, List[s
     return role_map
 
 
+def build_square_geofence(lat: float, lon: float, radius_m: int):
+    """Return (polygon_wkt, centroid_point) for a simple square geofence."""
+    lat_delta = radius_m / 111_320
+    lon_factor = max(math.cos(math.radians(lat)), 0.0001)
+    lon_delta = radius_m / (111_320 * lon_factor)
+    coords = [
+        (lon - lon_delta, lat - lat_delta),
+        (lon + lon_delta, lat - lat_delta),
+        (lon + lon_delta, lat + lat_delta),
+        (lon - lon_delta, lat + lat_delta),
+    ]
+    coords.append(coords[0])
+    polygon_wkt = "POLYGON((" + ", ".join(f"{x} {y}" for x, y in coords) + "))"
+    centroid_point = WKTElement(f"POINT({lon} {lat})", srid=4326)
+    geofence_polygon = WKTElement(polygon_wkt, srid=4326)
+    return geofence_polygon, centroid_point
+
+
 class FarmOwnerOut(BaseModel):
     user_id: UUID
     email: str
@@ -67,6 +88,11 @@ class FarmMemberOut(BaseModel):
     is_owner: bool
 
 
+class GeoPoint(BaseModel):
+    lat: float
+    lon: float
+
+
 class FarmOut(BaseModel):
     id: UUID
     name: str
@@ -75,16 +101,34 @@ class FarmOut(BaseModel):
     owners: List[FarmOwnerOut]
     members: List[FarmMemberOut]
     can_edit: bool
+    centroid: Optional[GeoPoint] = None
+    geofence_exists: bool = False
+
+
+class FarmGeofenceInput(BaseModel):
+    lat: confloat(ge=-90, le=90)
+    lon: confloat(ge=-180, le=180)
+    radius_m: conint(gt=0, le=20000) = 150
+
+
+def apply_geofence(farm: Farm, geofence: Optional[FarmGeofenceInput]):
+    if not geofence:
+        return
+    farm.geofence, farm.centroid = build_square_geofence(
+        geofence.lat, geofence.lon, geofence.radius_m
+    )
 
 
 class FarmCreate(BaseModel):
     name: constr(strip_whitespace=True, min_length=1, max_length=255)
     owner_ids: Optional[List[UUID]] = None
+    geofence: Optional[FarmGeofenceInput] = None
 
 
 class FarmUpdate(BaseModel):
     name: Optional[constr(strip_whitespace=True, min_length=1, max_length=255)] = None
     owner_ids: Optional[List[UUID]] = None
+    geofence: Optional[FarmGeofenceInput] = None
 
 
 class FarmMemberAdd(BaseModel):
@@ -103,6 +147,13 @@ class FarmMemberAdd(BaseModel):
 def serialize_farm(
     farm: Farm, current_user: User, role_names: Set[str], db: Session
 ) -> FarmOut:
+    centroid_point = None
+    if farm.centroid is not None:
+        centroid_point = GeoPoint(
+            lat=float(db.scalar(func.ST_Y(farm.centroid))),
+            lon=float(db.scalar(func.ST_X(farm.centroid))),
+        )
+
     owners = [
         FarmOwnerOut(
             user_id=link.user_id,
@@ -134,6 +185,8 @@ def serialize_farm(
         owners=owners,
         members=members,
         can_edit=can_edit,
+        centroid=centroid_point,
+        geofence_exists=bool(farm.geofence),
     )
 
 
@@ -229,6 +282,7 @@ def create_farm(
     ensure_owner_ids(db, owner_ids)
 
     farm = Farm(name=payload.name)
+    apply_geofence(farm, payload.geofence)
     db.add(farm)
     db.flush()
 
@@ -243,6 +297,44 @@ def create_farm(
     if not farm:
         raise HTTPException(status_code=500, detail="Failed to create farm")
     return serialize_farm(farm, current, role_names, db)
+
+
+class FarmCattleOut(BaseModel):
+    id: UUID
+    name: str
+    external_id: Optional[str]
+    born_date: Optional[datetime]
+
+
+@router.get("/{farm_id}/cattle", response_model=List[FarmCattleOut])
+def list_farm_cattle(
+    farm_id: UUID,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    role_names = get_role_names(db, current)
+    if not role_names & ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    farm = fetch_farm_with_members(db, farm_id)
+    if not farm:
+        raise HTTPException(status_code=404, detail="Farm not found")
+
+    if "admin" not in role_names:
+        has_access = any(link.user_id == current.id for link in farm.user_links)
+        if not has_access:
+            raise HTTPException(status_code=403, detail="Not authorized to view this farm")
+
+    rows = db.query(Cattle).filter(Cattle.farm_id == farm_id).order_by(Cattle.name).all()
+    return [
+        FarmCattleOut(
+            id=row.id,
+            name=row.name,
+            external_id=row.external_id,
+            born_date=row.born_date,
+        )
+        for row in rows
+    ]
 
 
 def require_farm_access(
@@ -319,6 +411,9 @@ def update_farm(
         missing_owner_ids = new_owner_ids - set(existing_by_user.keys())
         for owner_id in missing_owner_ids:
             db.add(UserFarm(user_id=owner_id, farm_id=farm.id, is_owner=True))
+
+    if payload.geofence is not None:
+        apply_geofence(farm, payload.geofence)
 
     db.commit()
 

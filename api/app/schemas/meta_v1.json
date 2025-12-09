@@ -98,6 +98,10 @@
       "type": ["number", "string", "null"],
       "description": "Intramuscular fat percentage (optional)"
     },
+    "grading": {
+      "type": ["string", "null"],
+      "description": "Optional grading label from device (e.g., auto-seeded or model name)"
+    },
     "backfat_thickness": {
       "type": ["number", "string", "null"],
       "description": "Backfat thickness measurement"

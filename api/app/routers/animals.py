@@ -6,8 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, constr
 from sqlalchemy.orm import Session
 
+from sqlalchemy.orm import selectinload
+
 from ..db import get_db
-from ..models import Animal, Cattle, Farm, Role, User, UserFarm, UserRole
+from ..models import Animal, Cattle, Farm, Role, Scan, User, UserFarm, UserRole
+from ..s3_utils import generate_presigned_url
 from .me import get_current_user
 
 router = APIRouter()
@@ -30,6 +33,23 @@ class AnimalOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AnimalScanOut(BaseModel):
+    id: UUID
+    capture_id: str
+    label: Optional[str]
+    created_at: datetime
+    grading: Optional[str]
+    latest_model: Optional[str]
+    latest_version: Optional[str]
+    latest_confidence: Optional[float]
+    imf: Optional[float]
+    backfat_thickness: Optional[float]
+    animal_weight: Optional[float]
+    ribeye_area: Optional[float]
+    image_url: Optional[str]
+    image_key: Optional[str]
 
 
 class AnimalCreate(BaseModel):
@@ -103,8 +123,36 @@ def serialize_animal(instance: Animal) -> AnimalOut:
     )
 
 
+def serialize_animal_scan(scan: Scan) -> AnimalScanOut:
+    latest = None
+    if scan.grading_results:
+        latest = sorted(scan.grading_results, key=lambda g: g.created_at, reverse=True)[0]
+    image_url = None
+    if scan.image_asset:
+        image_url = generate_presigned_url(scan.image_asset.bucket, scan.image_asset.object_key)
+    return AnimalScanOut(
+        id=scan.id,
+        capture_id=scan.capture_id,
+        label=scan.label,
+        created_at=scan.created_at,
+        grading=scan.grading,
+        latest_model=latest.model_name if latest else None,
+        latest_version=latest.model_version if latest else None,
+        latest_confidence=float(latest.confidence) if latest and latest.confidence is not None else None,
+        imf=float(scan.imf) if scan.imf is not None else None,
+        backfat_thickness=float(scan.backfat_thickness) if scan.backfat_thickness is not None else None,
+        animal_weight=float(scan.animal_weight) if scan.animal_weight is not None else None,
+        ribeye_area=float(scan.ribeye_area) if scan.ribeye_area is not None else None,
+        image_url=image_url,
+        image_key=scan.image_asset.object_key if scan.image_asset else None,
+    )
+
+
 @router.get("", response_model=List[AnimalOut])
 def list_animals(
+    farm_id: Optional[UUID] = None,
+    cattle_id: Optional[UUID] = None,
+    tag: Optional[str] = None,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -118,6 +166,13 @@ def list_animals(
         query = query.filter(
             (Animal.farm_id == None) | (Animal.farm_id.in_(accessible_farms))  # noqa: E711
         )
+    if farm_id:
+        query = query.filter(Animal.farm_id == farm_id)
+    if cattle_id:
+        query = query.filter(Animal.cattle_id == cattle_id)
+    if tag:
+        like = f"%{tag}%"
+        query = query.filter(Animal.tag_id.ilike(like))
     animals = query.order_by(Animal.created_at.desc()).all()
     return [serialize_animal(animal) for animal in animals]
 
@@ -179,6 +234,38 @@ def get_animal(
             raise HTTPException(status_code=403, detail="Not authorized to view this animal")
 
     return serialize_animal(animal)
+
+
+@router.get("/{animal_id}/scans", response_model=List[AnimalScanOut])
+def get_animal_scans(
+    animal_id: UUID,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    role_names = get_role_names(db, current)
+    if not role_names & ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    animal = db.get(Animal, animal_id)
+    if not animal:
+        raise HTTPException(status_code=404, detail="Animal not found")
+
+    if "admin" not in role_names:
+        accessible_farms = get_accessible_farm_ids(db, current)
+        if animal.farm_id and animal.farm_id not in accessible_farms:
+            raise HTTPException(status_code=403, detail="Not authorized to view this animal")
+
+    scans = (
+        db.query(Scan)
+        .options(
+            selectinload(Scan.grading_results),
+            selectinload(Scan.image_asset),
+        )
+        .filter(Scan.animal_id == animal.id)
+        .order_by(Scan.created_at.desc())
+        .all()
+    )
+    return [serialize_animal_scan(scan) for scan in scans]
 
 
 @router.put("/{animal_id}", response_model=AnimalOut)

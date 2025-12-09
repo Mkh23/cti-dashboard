@@ -1,0 +1,43 @@
+{
+  "meta_version": "1.0.0",
+  "device_code": "dev-0001",
+  "capture_id": "cap_20251113090123",
+  "captured_at": "2025-11-13T09:01:23Z",
+  "image_sha256": "13abab351b81439ff7a3b30cd1c87a7ff73260d5d0f969c6254d0228de0f43b6",
+  "mask_sha256": "4e34d90b61123915a83d2820a6620ea32a8fec1e8a5e227ee207ce54ae19b70b",
+  "files": {
+    "image_relpath": "image.jpg",
+    "mask_relpath": "mask.png",
+    "extra": [
+      "meta.json"
+    ]
+  },
+  "probe": {
+    "model": "SonoSite iViz",
+    "frequency_mhz": 5.0
+  },
+  "firmware": {
+    "app_version": "1.4.2",
+    "pi_os": "ubuntu 64-bit"
+  },
+  "clarity": "good",
+  "usability": "medium",
+  "label": "Batch 42 - Flag",
+  "IMF": 3.2,
+  "backfat_thickness": 0.85,
+  "animal_weight": 620,
+  "ribeye_area": 85.4,
+  "Animal_RFID": "RFID-123-456-789",
+  "cattle_ID": "cattle-001",
+  "grading": "AAA",
+  "operator_id": "op-7788",
+  "farm_id": "farm-1234",
+  "gps": {
+    "lat": 49.2827,
+    "lon": -123.1207
+  },
+  "inference_summary": {
+    "mask_iou_hint": 0.92,
+    "ribeye_bbox": [0.12, 0.33, 0.78, 0.64]
+  }
+}

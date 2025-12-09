@@ -124,7 +124,12 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
-- Incoming metadata now captures IMF, backfat thickness, animal weight, `Animal_RFID`, and `cattle_ID`, automatically creating cattle/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
+- Incoming metadata now captures grading labels, IMF, backfat thickness, animal weight, `Animal_RFID`, and `cattle_ID`, automatically creating cattle/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
+- Cattle-to-farm updates cascade farm assignment to related animals and scans so lists stay consistent after edits
+- Updated cattle edits to explicitly refresh related animals/scans with the new farm for consistent listings in drill-down views
+- Cattle farm/birth-date edits now cascade to animals so cattle/animal detail pages show updated farm and birth data; animal scan links respect role-specific scan paths to avoid 404s
+- Cattle updates now propagate farm + birth date to animals/scans; animal/cattle forms toggle between register/edit states based on context
+- Fixed Animals form toggle (show/hide) so it initializes correctly when editing
 - Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
 - Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
@@ -136,8 +141,11 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Admin users page shows each person's name, email, and lets admins toggle roles with immediate API persistence
 - Shared farm manager page for admins, technicians, and farmers with create/view/edit flows respecting ownership
 - Farm detail screens surface the full management group and support role-aware add/remove flows with named confirmation
+- Farm detail now includes a GPS/geofence editor (lat/lon + radius) so admins/owners can steer ingest routing by location
+- Animal detail pages now show immutable animal metadata plus all related scans (with reported/latest grading, metrics, and image previews)
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 - Scan detail editor now enforces clarity/usability dropdowns with type-safe enums and payload normalization so updates can't submit invalid values or fail builds
+- Scan detail view now surfaces the device-reported grading string from `meta.json` (e.g., "AAA") alongside latest grading runs
 - Next.js build config now hard-wires the `@` alias so server builds resolve shared libs the same way as local dev
 - Backend scan API schemas now explicitly allow `model_name` / `model_version` fields via a shared Pydantic config so dev/prod logs stay noise-free
 - Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
@@ -158,6 +166,15 @@ pytest --cov=app --cov-report=term-missing
 ```
 
 `pytest.ini` enforces `--cov-fail-under=70`; with a running Postgres service the suite currently passes at ~85% coverage. See [TESTING.md](TESTING.md) for database bootstrap steps and troubleshooting.
+
+### Ingest smoke tests (real assets)
+
+- Real PNG image + mask fixtures and default metadata live in `tests/fixtures/sample_ingest_payload.json`.
+- Real photo/mask + final `meta.json` are in `tests/scan20261208/` (override via `CTI_SAMPLE_DIR`) and are used by the S3 smoke and webhook scripts.
+- Upload to AWS S3 with the final `meta.json` by running `pytest tests/test_ingestion_e2e.py` (requires `CTI_BUCKET` and AWS credentials).
+- Post a signed webhook using the same assets via `UPLOAD_TO_S3=1 CTI_BUCKET=... python scripts/test_webhook_hmac.py` (uploads image/mask/meta and sends the HMAC webhook); omit `UPLOAD_TO_S3` to only send the webhook body.
+- `tests/test_webhook_hmac.py` sends the same payload to `INGEST_WEBHOOK_URL` for quick end-to-end validation.
+- `meta.json` supports optional `grading` (string). When provided, the dashboard shows “Reported: <grading>”; otherwise it shows “Awaiting grading.”
 
 ## Project status snapshot
 

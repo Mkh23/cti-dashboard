@@ -1,14 +1,16 @@
 """Test webhook ingestion endpoints."""
+import base64
 import json
 import hmac
 import hashlib
 import time
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 from geoalchemy2 import WKTElement
 
-from app.models import Device, Scan, Farm, FarmGeofence, Cattle
+from app.models import Asset, Device, Scan, Farm, FarmGeofence, Cattle
 
 
 def create_hmac_signature(timestamp: str, body: str, secret: str = "dev_secret_change_me") -> str:
@@ -310,5 +312,62 @@ def test_webhook_assigns_farm_from_geofence(client, test_device, test_db):
         scan = db.query(Scan).filter(Scan.capture_id == "cap_777001").one()
         assert scan.farm_id == farm_id
         assert scan.meta["gps"]["lat"] == 45.0
+    finally:
+        db.close()
+
+
+def load_sample_payload():
+    """Load shared image/mask + meta defaults used for E2E ingest tests."""
+    fixture = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "sample_ingest_payload.json"
+    payload = json.loads(fixture.read_text())
+    img = base64.b64decode(payload["image_png_base64"])
+    mask = base64.b64decode(payload["mask_png_base64"])
+    defaults = payload["meta_defaults"]
+    return img, mask, defaults
+
+
+def test_webhook_ingests_full_payload_with_mask_and_metrics(client, test_device, test_db):
+    """Webhook accepts the canonical sample with real image/mask hashes and persists mask asset + metrics."""
+    img, mask, defaults = load_sample_payload()
+    capture_id = "cap_full_payload"
+    timestamp = str(int(datetime.utcnow().timestamp()))
+    payload = {
+        "bucket": "test-bucket",
+        "ingest_key": f"raw/{test_device.device_code}/2025/12/01/{capture_id}/",
+        "device_code": test_device.device_code,
+        "objects": ["image.png", "mask.png", "meta.json"],
+        "meta_json": {
+            "meta_version": "1.0.0",
+            "device_code": test_device.device_code,
+            "capture_id": capture_id,
+            "captured_at": "2025-12-01T15:04:05Z",
+            "image_sha256": hashlib.sha256(img).hexdigest(),
+            "mask_sha256": hashlib.sha256(mask).hexdigest(),
+            **defaults,
+        },
+        "etag": "abc123",
+        "size_bytes": len(img) + len(mask),
+        "event_time": "2025-12-01T15:04:10Z",
+    }
+    body = json.dumps(payload)
+    signature = create_hmac_signature(timestamp, body)
+
+    response = client.post(
+        "/ingest/webhook",
+        headers={"X-CTI-Timestamp": timestamp, "X-CTI-Signature": signature},
+        json=payload,
+    )
+    assert response.status_code == 200
+
+    db = test_db()
+    try:
+        scan = db.query(Scan).filter(Scan.capture_id == capture_id).one()
+        assert scan.mask_asset_id is not None
+        assert scan.meta["files"]["mask_relpath"] == "mask.png"
+        assert scan.imf is not None
+        assert float(scan.backfat_thickness) == pytest.approx(0.85)
+        assert scan.clarity.value == "good"
+        mask_asset = db.query(Asset).filter(Asset.id == scan.mask_asset_id).one()
+        assert mask_asset.sha256 == hashlib.sha256(mask).hexdigest()
     finally:
         db.close()

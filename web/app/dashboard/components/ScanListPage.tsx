@@ -104,21 +104,57 @@ export default function ScanListPage({ role }: { role: Role }) {
     total_pages: 1,
   });
   const [stats, setStats] = useState<ScanStats | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [labelInput, setLabelInput] = useState("");
-  const [appliedLabel, setAppliedLabel] = useState("");
+  const [filters, setFilters] = useState({
+    capture: "",
+    farm_id: "",
+    status: "all" as StatusFilter,
+    created_from: "",
+    created_to: "",
+    latest_grading: "",
+    device_id: "",
+  });
+  const [appliedFilters, setAppliedFilters] = useState(filters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const statusOptions = useMemo<StatusFilter[]>(() => {
-    return ["all", ...STATUS_ORDER];
-  }, []);
+  const statusOptions = useMemo<StatusFilter[]>(() => ["all", ...STATUS_ORDER], []);
+  const farmOptions = useMemo(() => {
+    const ids = new Map<string, string>();
+    scans.forEach((scan) => {
+      if (scan.farm_id && scan.farm_name) {
+        ids.set(scan.farm_id, scan.farm_name);
+      }
+    });
+    return Array.from(ids.entries()).map(([id, name]) => ({ id, name }));
+  }, [scans]);
+
+  const deviceOptions = useMemo(() => {
+    const devices = new Map<string, string>();
+    scans.forEach((scan) => {
+      if (scan.device_id) {
+        devices.set(scan.device_id, scan.device_label ?? scan.device_code ?? scan.device_id);
+      }
+    });
+    return Array.from(devices.entries()).map(([id, label]) => ({ id, label }));
+  }, [scans]);
+
+  const gradingOptions = useMemo(() => {
+    const grades = new Set<string>();
+    scans.forEach((scan) => {
+      if (scan.latest_grading?.model_name) {
+        grades.add(scan.latest_grading.model_name);
+      } else if (scan.grading) {
+        grades.add(scan.grading);
+      }
+    });
+    return Array.from(grades);
+  }, [scans]);
 
   const basePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
 
   const loadData = useCallback(
-    async (nextStatus: StatusFilter, nextPage: number, labelValue: string) => {
-      setStatusFilter(nextStatus);
+    async (nextFilters: typeof appliedFilters, nextPage: number) => {
       setPageMeta((prev) => ({ ...prev, page: nextPage }));
       setLoading(true);
       try {
@@ -128,12 +164,13 @@ export default function ScanListPage({ role }: { role: Role }) {
           page: nextPage,
           per_page: PER_PAGE,
         };
-        if (nextStatus !== "all") {
-          params.status = nextStatus;
-        }
-        if (labelValue) {
-          params.label = labelValue;
-        }
+        if (nextFilters.status !== "all") params.status = nextFilters.status;
+        if (nextFilters.capture) params.capture = nextFilters.capture;
+        if (nextFilters.farm_id) params.farm_id = nextFilters.farm_id;
+        if (nextFilters.created_from) params.created_from = nextFilters.created_from;
+        if (nextFilters.created_to) params.created_to = nextFilters.created_to;
+        if (nextFilters.latest_grading) params.latest_grading = nextFilters.latest_grading;
+        if (nextFilters.device_id) params.device_id = nextFilters.device_id;
 
         const [statsData, listData] = await Promise.all([
           getScanStats(token),
@@ -172,37 +209,39 @@ export default function ScanListPage({ role }: { role: Role }) {
           return;
         }
         setProfile(profileData);
-        await loadData("all", 1, "");
+        setAppliedFilters((prev) => prev); // keep applied state
+        await loadData(appliedFilters, 1);
       } catch (err: any) {
         setError(err?.message || "Failed to load scans");
       }
     })();
-  }, [loadData, role, router]);
+  }, [appliedFilters, loadData, role, router]);
 
-  const handleStatusChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = event.target.value as StatusFilter;
-    void loadData(value, 1, appliedLabel);
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    void loadData(filters, 1);
   };
 
-  const handleRefresh = () =>
-    void loadData(statusFilter, pageMeta.page, appliedLabel);
+  const handleClearFilters = () => {
+    const cleared = {
+      capture: "",
+      farm_id: "",
+      status: "all" as StatusFilter,
+      created_from: "",
+      created_to: "",
+      latest_grading: "",
+      device_id: "",
+    };
+    setFilters(cleared);
+    setAppliedFilters(cleared);
+    void loadData(cleared, 1);
+  };
+
+  const handleRefresh = () => void loadData(appliedFilters, pageMeta.page);
 
   const goToPage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > pageMeta.total_pages) return;
-    void loadData(statusFilter, nextPage, appliedLabel);
-  };
-
-  const handleLabelSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmed = labelInput.trim();
-    setAppliedLabel(trimmed);
-    void loadData(statusFilter, 1, trimmed);
-  };
-
-  const handleLabelClear = () => {
-    setLabelInput("");
-    setAppliedLabel("");
-    void loadData(statusFilter, 1, "");
+    void loadData(appliedFilters, nextPage);
   };
 
   if (error) {
@@ -224,55 +263,138 @@ export default function ScanListPage({ role }: { role: Role }) {
             Role-aware scan list with grading summaries.
           </p>
         </div>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          <form
-            onSubmit={handleLabelSubmit}
-            className="flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={labelInput}
-              placeholder="Filter by label"
-              onChange={(event) => setLabelInput(event.target.value)}
-              className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800"
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              onClick={handleLabelClear}
-              disabled={!appliedLabel}
-              className="rounded-md border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Reset
-            </button>
-          </form>
-          <select
-            className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={statusFilter}
-            onChange={handleStatusChange}
-          >
-            {statusOptions.map((option) => (
-              <option key={option} value={option}>
-                {option === "all" ? "All statuses" : STATUS_LABELS[option]}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800"
-          >
-            Refresh
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800"
+        >
+          Refresh
+        </button>
       </header>
 
       <StatsSummary stats={stats} />
+
+      <section className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Filter scans</h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800"
+              onClick={() => setFiltersOpen((prev) => !prev)}
+            >
+              {filtersOpen ? "Hide" : "Show"}
+            </button>
+          </div>
+        </div>
+        {filtersOpen && (
+          <>
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-capture">Capture</label>
+                <input
+                  id="filter-capture"
+                  type="text"
+                  value={filters.capture}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, capture: e.target.value }))}
+                  placeholder="Search capture id"
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-farm">Farm</label>
+                <select
+                  id="filter-farm"
+                  value={filters.farm_id}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, farm_id: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  {farmOptions.map((farm) => (
+                    <option key={farm.id} value={farm.id}>
+                      {farm.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-status">Status</label>
+                <select
+                  id="filter-status"
+                  value={filters.status}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value as StatusFilter }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {statusOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "all" ? "All statuses" : STATUS_LABELS[option]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-created-from">Created from</label>
+                <input
+                  id="filter-created-from"
+                  type="date"
+                  value={filters.created_from}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, created_from: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-created-to">Created to</label>
+                <input
+                  id="filter-created-to"
+                  type="date"
+                  value={filters.created_to}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, created_to: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-grading">Latest grading</label>
+                <select
+                  id="filter-grading"
+                  value={filters.latest_grading}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, latest_grading: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  {gradingOptions.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400" htmlFor="filter-device">Device</label>
+                <select
+                  id="filter-device"
+                  value={filters.device_id}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, device_id: e.target.value }))}
+                  className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All</option>
+                  {deviceOptions.map((device) => (
+                    <option key={device.id} value={device.id}>
+                      {device.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500"
+              >
+                Apply filters
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="card overflow-hidden">
         <div className="overflow-x-auto">
@@ -305,6 +427,7 @@ export default function ScanListPage({ role }: { role: Role }) {
               ) : (
                 scans.map((scan) => {
                   const latest = scan.latest_grading;
+                  const reportedGrade = scan.grading;
                   return (
                     <tr key={scan.id}>
                       <td className="px-4 py-4">
@@ -352,6 +475,10 @@ export default function ScanListPage({ role }: { role: Role }) {
                               {formatDate(latest.created_at)}
                             </div>
                           </div>
+                        ) : reportedGrade ? (
+                          <span className="text-sm text-emerald-200">
+                            Reported: {reportedGrade}
+                          </span>
                         ) : (
                           <span className="text-sm text-gray-500">
                             Awaiting grading

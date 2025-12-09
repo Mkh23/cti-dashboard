@@ -66,7 +66,7 @@ CORS_ORIGINS=http://localhost:3000
 
 - `GET /farms` - List farms scoped to the authenticated user (admins see all)
 - `POST /farms` - Create a farm (admins, technicians, and farmers)
-- `GET/PUT /farms/{farm_id}` - View/update farms the caller owns; admins can update anyone's farm
+- `GET/PUT /farms/{farm_id}` - View/update farms the caller owns; admins can update anyone's farm. Include an optional `geofence` payload (`{lat, lon, radius_m}`) to set the centroid + square boundary used for GPS-based ingest routing.
 - `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
 - `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role restrictions
 
@@ -137,6 +137,7 @@ See the repo-level [TESTING.md](../TESTING.md) for instructions on provisioning 
 - **Connection refused / missing database** – ensure Postgres is running and the `cti`, `cti_test`, and `cti_test_no_roles` databases exist with PostGIS enabled.
 - **`Database not properly initialized` during registration** – run Alembic migrations to seed default roles (`alembic upgrade head`).
 - **HMAC signature failures** – verify `HMAC_SECRET` matches the value used by the uploader/Lambda.
+- **NameError: FarmGeofenceInput** – pull latest changes; farm router import ordering was fixed so Uvicorn/dev.sh start cleanly.
 
 ## Development tooling
 

@@ -92,6 +92,7 @@ class ScanOut(ScanApiModel):
     clarity: Optional[str]
     usability: Optional[str]
     label: Optional[str]
+    grading: Optional[str]
 
 
 class ScanDetailOut(ScanOut):
@@ -287,6 +288,7 @@ def serialize_scan_summary(scan: Scan) -> ScanOut:
         clarity=scan.clarity.value if scan.clarity else None,
         usability=scan.usability.value if scan.usability else None,
         label=scan.label,
+        grading=scan.grading,
     )
 
 

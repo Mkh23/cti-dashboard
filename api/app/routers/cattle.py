@@ -4,10 +4,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, constr
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
-from ..models import Cattle, Farm, Role, User, UserFarm, UserRole
+from ..models import Animal, Cattle, Farm, Role, Scan, User, UserFarm, UserRole
+from .animals import serialize_animal, AnimalOut
 from .me import get_current_user
 
 router = APIRouter()
@@ -94,6 +95,10 @@ def serialize_cattle(instance: Cattle) -> CattleOut:
 
 @router.get("", response_model=List[CattleOut])
 def list_cattle(
+    farm_id: Optional[UUID] = None,
+    born_from: Optional[date] = None,
+    born_to: Optional[date] = None,
+    name: Optional[str] = None,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -107,8 +112,46 @@ def list_cattle(
         query = query.filter(
             (Cattle.farm_id == None) | (Cattle.farm_id.in_(accessible_farms))  # noqa: E711
         )
+    if farm_id:
+        query = query.filter(Cattle.farm_id == farm_id)
+    if born_from:
+        query = query.filter(Cattle.born_date >= born_from)
+    if born_to:
+        query = query.filter(Cattle.born_date <= born_to)
+    if name:
+        query = query.filter(Cattle.name.ilike(f"%{name}%"))
     cattle = query.order_by(Cattle.created_at.desc()).all()
     return [serialize_cattle(c) for c in cattle]
+
+
+@router.get("/{cattle_id}/animals", response_model=List[AnimalOut])
+def cattle_animals(
+    cattle_id: UUID,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    role_names = get_role_names(db, current)
+    if not role_names & ALLOWED_ROLES:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    cattle = (
+        db.query(Cattle)
+        .options(selectinload(Cattle.animals).selectinload(Animal.farm))
+        .filter(Cattle.id == cattle_id)
+        .first()
+    )
+    if not cattle:
+        raise HTTPException(status_code=404, detail="Cattle not found")
+
+    if "admin" not in role_names:
+        accessible_farms = get_accessible_farm_ids(db, current)
+        if cattle.farm_id and cattle.farm_id not in accessible_farms:
+            raise HTTPException(status_code=403, detail="Not authorized to view this cattle")
+        animals = [a for a in cattle.animals if (a.farm_id in accessible_farms) or a.farm_id is None]
+    else:
+        animals = cattle.animals
+
+    return [serialize_animal(animal) for animal in animals]
 
 
 @router.post("", response_model=CattleOut)
@@ -207,6 +250,8 @@ def update_cattle(
         if existing:
             raise HTTPException(status_code=400, detail="External cattle ID already exists")
 
+    old_farm_id = cattle.farm_id
+    old_born_date = cattle.born_date
     if payload.name is not None:
         cattle.name = payload.name
     if payload.external_id is not None:
@@ -214,6 +259,29 @@ def update_cattle(
     if payload.born_date is not None:
         cattle.born_date = payload.born_date
     cattle.farm_id = new_farm_id
+
+    # Cascade farm assignment and born_date to related animals and scans when cattle changes
+    if new_farm_id != old_farm_id or cattle.born_date != old_born_date:
+        new_farm = db.query(Farm).filter(Farm.id == new_farm_id).first() if new_farm_id else None
+        animals = db.query(Animal).filter(Animal.cattle_id == cattle.id).all()
+        animal_ids = [a.id for a in animals]
+        for animal in animals:
+            if new_farm_id != old_farm_id:
+                animal.farm_id = new_farm_id
+                animal.farm = new_farm
+            if cattle.born_date != old_born_date:
+                animal.birth_date = cattle.born_date
+
+        if animal_ids:
+            updates = {}
+            if new_farm_id != old_farm_id:
+                updates["farm_id"] = new_farm_id
+            if updates:
+                (
+                    db.query(Scan)
+                    .filter((Scan.animal_id.in_(animal_ids)) | (Scan.cattle_id == cattle.id))
+                    .update(updates, synchronize_session=False)
+                )
 
     db.commit()
     db.refresh(cattle)

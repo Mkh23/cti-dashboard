@@ -81,6 +81,7 @@
 ### 3.4 End-to-End Testing
 - [x] Local test harness to simulate S3 → Lambda → webhook flow (`scripts/test_webhook_hmac.py`)
 - [x] Basic test images with meta.json templates (`tests/test_ingestion_e2e.py`)
+- [x] Real image+mask fixture with final `meta.json` + HMAC uploader (`tests/fixtures/sample_ingest_payload.json`, `scripts/test_webhook_hmac.py`)
 - [ ] S3 event notification simulator
 - [x] Admin scan sync now normalizes sparse/legacy `meta.json` blobs with sensible defaults so schema validation no longer blocks AWS backfills
 
@@ -98,6 +99,7 @@
 - [x] Store schema at `api/app/schemas/meta_v1.json` and reference in README
 - [x] Unit tests for required/optional fields and error messages
 - [x] Forward-compat plan: only additive optional fields until v2
+- [x] Schema includes optional `grading` so device-supplied grades persist automatically
 
 **Required keys (recap):** `meta_version, device_code, capture_id, captured_at, image_sha256, files{image_relpath}, probe, firmware`  
 **Optional:** `operator_id, farm_id, gps{lat,lon}, mask_sha256, files{mask_relpath,extra[]}, inference_summary{...}`
@@ -233,11 +235,19 @@
 - [x] Admin users page surfaces name/email and supports in-app role assignment
 - [x] Profile Management: All roles can update profile info and change password
 - [x] Farm detail surfaces management roster with admin/farmer add-remove flows
+- [x] Farm geofence editor (lat/lon + radius) to steer ingest routing by GPS
 - [x] Technician: Scans dashboard with status filters, grading actions, reporting cards
 - [x] Farmer: Scans dashboard with graded-result summaries and signed previews
 - [x] Shared cattle manager page for admins/technicians/farmers
 - [x] Scan detail attribute editor locks clarity/usability dropdowns to ScanQuality enums and normalizes the payload so updates can't send invalid values
 - [x] Next.js alias config stabilized so `@/lib/*` imports work in production builds
+- [x] Scan detail surfaces device-reported grading string from `meta.json`
+- [x] Animal detail pages show immutable metadata and related scans with grading + images
+- [x] Cattle→farm edits cascade to related animals/scans for consistent listings
+- [x] Cattle farm changes now also refresh related animals' farm so cattle detail shows updated farms
+- [x] Cattle birth-date + farm changes cascade into animals; animal scan links are role-aware to avoid 404s
+- [x] Cattle updates refresh animal birth/farm, and UI forms clearly switch between register/edit states for animals and cattle
+- [x] Animals form toggle fixed (show/hide) with proper state initialization
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions
 - [ ] Farmer: Herd, Animal History (trend mini-charts), Notifications
 
@@ -337,6 +347,7 @@
 - [x] Role guards (server & client)
 - [x] Admin screens for users, farms, devices (backend + frontend complete)
 - [x] Comprehensive admin API tests (16 tests, 83% coverage) ✅
+- [x] Farm geofence API loads cleanly (startup NameError resolved)
 **DoD:** Admin can create users, register devices, define farm boundaries ✅ Complete with tests (farm boundaries/map pending)
 
 ### Phase C — Ingest (AWS→Server) [PRIORITY]
