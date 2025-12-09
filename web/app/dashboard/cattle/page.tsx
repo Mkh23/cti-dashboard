@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
@@ -17,7 +17,7 @@ import {
 
 const ROLE_SET = new Set(["admin", "technician", "farmer"]);
 
-export default function CattleManagerPage() {
+function CattleManagerContent() {
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cattle, setCattle] = useState<Cattle[]>([]);
@@ -403,5 +403,13 @@ export default function CattleManagerPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function CattleManagerPage() {
+  return (
+    <Suspense fallback={<main className="p-6"><p>Loading cattle...</p></main>}>
+      <CattleManagerContent />
+    </Suspense>
   );
 }
