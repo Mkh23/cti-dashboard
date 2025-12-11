@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   getScanStats,
+  listFarms,
   listScans,
   me,
   type PaginatedScans,
@@ -14,6 +15,7 @@ import {
   type ScanStats,
   type ScanStatus,
 } from "@/lib/api";
+import { buildFarmTimeZoneMap, DEFAULT_FARM_TIME_ZONE, formatDateTime } from "@/lib/datetime";
 
 type Role = "admin" | "technician" | "farmer";
 type StatusFilter = "all" | ScanStatus;
@@ -40,9 +42,6 @@ const hasRoleAccess = (role: Role, roles: string[]): boolean => {
   if (roles.includes("admin")) return true;
   return roles.includes(role);
 };
-
-const formatDate = (value?: string | null) =>
-  value ? new Date(value).toLocaleString() : "—";
 
 const formatConfidence = (value?: number | null) => {
   if (value === undefined || value === null) return "—";
@@ -94,6 +93,8 @@ function StatsSummary({ stats }: { stats: ScanStats | null }) {
 export default function ScanListPage({ role }: { role: Role }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [farmTimeZones, setFarmTimeZones] = useState<Record<string, string>>({});
+  const [farmsLoaded, setFarmsLoaded] = useState(false);
   const [scans, setScans] = useState<Scan[]>([]);
   const [pageMeta, setPageMeta] = useState<
     Pick<PaginatedScans, "page" | "per_page" | "total" | "total_pages">
@@ -152,6 +153,10 @@ export default function ScanListPage({ role }: { role: Role }) {
   }, [scans]);
 
   const basePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
+  const timeZoneForScan = useCallback(
+    (scan: Scan) => (scan.farm_id ? farmTimeZones[scan.farm_id] ?? DEFAULT_FARM_TIME_ZONE : undefined),
+    [farmTimeZones]
+  );
 
   const loadData = useCallback(
     async (nextFilters: typeof appliedFilters, nextPage: number) => {
@@ -209,13 +214,23 @@ export default function ScanListPage({ role }: { role: Role }) {
           return;
         }
         setProfile(profileData);
+        if (!farmsLoaded) {
+          try {
+            const farms = await listFarms(token);
+            setFarmTimeZones(buildFarmTimeZoneMap(farms));
+          } catch {
+            setFarmTimeZones({});
+          } finally {
+            setFarmsLoaded(true);
+          }
+        }
         setAppliedFilters((prev) => prev); // keep applied state
         await loadData(appliedFilters, 1);
       } catch (err: any) {
         setError(err?.message || "Failed to load scans");
       }
     })();
-  }, [appliedFilters, loadData, role, router]);
+  }, [appliedFilters, farmsLoaded, loadData, role, router]);
 
   const handleApplyFilters = () => {
     setAppliedFilters(filters);
@@ -472,7 +487,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                               {latest.model_version ?? "—"}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {formatDate(latest.created_at)}
+                              {formatDateTime(latest.created_at, { timeZone: timeZoneForScan(scan) })}
                             </div>
                           </div>
                         ) : reportedGrade ? (
@@ -486,7 +501,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-400">
-                        {formatDate(scan.created_at)}
+                        {formatDateTime(scan.created_at, { timeZone: timeZoneForScan(scan) })}
                       </td>
                       <td className="px-4 py-4 text-right">
                         <Link

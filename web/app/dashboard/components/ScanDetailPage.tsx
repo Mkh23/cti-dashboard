@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   gradeScan,
   getScan,
+  listFarms,
   me,
   updateScanAttributes,
   type GradeScanPayload,
@@ -15,13 +16,11 @@ import {
   type ScanQuality,
   type UpdateScanAttributesPayload,
 } from "@/lib/api";
+import { buildFarmTimeZoneMap, DEFAULT_FARM_TIME_ZONE, formatDateTime } from "@/lib/datetime";
 import type { Role } from "@/lib/roles";
 
 const canGrade = (roles: string[]): boolean =>
   roles.includes("admin") || roles.includes("technician");
-
-const formatDateTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString() : "—";
 
 const formatConfidence = (value?: number | null) => {
   if (value === undefined || value === null) return "—";
@@ -90,6 +89,7 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [scan, setScan] = useState<ScanDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [farmTimeZones, setFarmTimeZones] = useState<Record<string, string>>({});
 
   const [gradeForm, setGradeForm] = useState<GradeFormState>({
     model_name: "cti-sim",
@@ -110,6 +110,10 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [attributesSuccess, setAttributesSuccess] = useState<string | null>(null);
 
   const detailBasePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
+  const farmTimeZone = useMemo(
+    () => (scan?.farm_id ? farmTimeZones[scan.farm_id] ?? DEFAULT_FARM_TIME_ZONE : undefined),
+    [farmTimeZones, scan?.farm_id]
+  );
 
   const refreshScan = useCallback(
     async (token: string, id: string) => {
@@ -152,6 +156,12 @@ export default function ScanDetailPage({ role }: { role: Role }) {
           return;
         }
         setProfile(profileData);
+        try {
+          const farms = await listFarms(token);
+          setFarmTimeZones(buildFarmTimeZoneMap(farms));
+        } catch {
+          setFarmTimeZones({});
+        }
         await refreshScan(token, scanId);
         setError(null);
       } catch (err: any) {
@@ -279,11 +289,15 @@ export default function ScanDetailPage({ role }: { role: Role }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-400">Captured at</dt>
-              <dd>{formatDateTime(scan.captured_at)}</dd>
+              <dd>{formatDateTime(scan.captured_at, { timeZone: farmTimeZone })}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-400">Created</dt>
-              <dd>{formatDateTime(scan.created_at)}</dd>
+              <dd>{formatDateTime(scan.created_at, { timeZone: farmTimeZone })}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-gray-400">Timezone</dt>
+              <dd>{farmTimeZone ?? "Browser local"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-400">Reported grading</dt>
@@ -295,18 +309,18 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         <div className="card space-y-3">
           <h2 className="text-lg font-semibold text-white">Latest grading</h2>
           {scan.latest_grading ? (
-            <div className="space-y-2 text-sm text-gray-300">
-              <div className="text-2xl font-semibold text-white">
-                {formatConfidence(scan.latest_grading.confidence)}
-              </div>
-              <div>
+              <div className="space-y-2 text-sm text-gray-300">
+                <div className="text-2xl font-semibold text-white">
+                  {formatConfidence(scan.latest_grading.confidence)}
+                </div>
+                <div>
                 Model:{" "}
                 <span className="font-semibold">
                   {scan.latest_grading.model_name ?? "—"}@
                   {scan.latest_grading.model_version ?? "—"}
                 </span>
               </div>
-              <div>Completed: {formatDateTime(scan.latest_grading.created_at)}</div>
+              <div>Completed: {formatDateTime(scan.latest_grading.created_at, { timeZone: farmTimeZone })}</div>
             </div>
           ) : scan.grading ? (
             <p className="text-sm text-emerald-200">Reported: {scan.grading}</p>
@@ -606,7 +620,7 @@ export default function ScanDetailPage({ role }: { role: Role }) {
                       {result.model_name}@{result.model_version}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {formatDateTime(result.created_at)}
+                      {formatDateTime(result.created_at, { timeZone: farmTimeZone })}
                     </p>
                   </div>
                   <div className="text-right text-sm text-gray-300">
