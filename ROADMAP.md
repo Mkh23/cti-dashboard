@@ -164,6 +164,7 @@
 - [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
 - [x] `GET/POST /groups` + role-aware group metadata management
 - [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `group_ID`, auto-creates group/animals, and routes unassigned scans to admin review
+- [x] Ingest now tolerates missing meta fields by applying defaults and ignores legacy/unknown keys to keep AWS payloads flowing
 - [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [x] Scan timestamps surface in the farm's local time zone (defaulting to America/Edmonton when location data is missing) so device `captured_at` values match ranch clocks
 - [x] Admin announcement system with public landing feed + dashboard navigation overhaul for quick panel access

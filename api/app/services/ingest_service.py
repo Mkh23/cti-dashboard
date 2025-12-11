@@ -37,9 +37,51 @@ with SCHEMA_PATH.open() as f:
     META_SCHEMA = json.load(f)
 
 
-def validate_meta(meta_json: Dict) -> None:
-    """Raise if the meta_json does not match schema."""
-    jsonschema.validate(instance=meta_json, schema=META_SCHEMA)
+def _apply_meta_defaults(meta_json: Dict) -> Dict:
+    """Return a copy of meta_json with safe defaults for missing fields."""
+    if not isinstance(meta_json, dict):
+        raise ValueError("meta_json must be an object")
+
+    data = dict(meta_json)
+
+    # Essential identifiers
+    data.setdefault("meta_version", "1.0.0")
+    data.setdefault("device_code", "unknown-device")
+    data.setdefault("capture_id", f"cap_{int(datetime.utcnow().timestamp())}")
+    data.setdefault("captured_at", datetime.utcnow().isoformat() + "Z")
+    data.setdefault("image_sha256", "0" * 64)
+    data.setdefault("group_id", None)
+
+    # Nested files structure
+    files = data.get("files") if isinstance(data.get("files"), dict) else {}
+    files = dict(files)
+    files.setdefault("image_relpath", "image.jpg")
+    files.setdefault("mask_relpath", None)
+    data["files"] = files
+
+    # Required objects with minimal defaults
+    probe = data.get("probe") if isinstance(data.get("probe"), dict) else {}
+    probe = dict(probe)
+    probe.setdefault("model", "unknown")
+    data["probe"] = probe
+
+    firmware = data.get("firmware") if isinstance(data.get("firmware"), dict) else {}
+    firmware = dict(firmware)
+    firmware.setdefault("app_version", "unknown")
+    data["firmware"] = firmware
+
+    # Legacy fields we intentionally ignore
+    data.pop("cattle_ID", None)
+    data.pop("cattle_id", None)
+
+    return data
+
+
+def validate_meta(meta_json: Dict) -> Dict:
+    """Validate meta_json after applying defaults; returns normalized payload."""
+    normalized = _apply_meta_defaults(meta_json)
+    jsonschema.validate(instance=normalized, schema=META_SCHEMA)
+    return normalized
 
 
 def parse_decimal(value: Optional[object]) -> Optional[Decimal]:
@@ -192,7 +234,7 @@ def ingest_scan_from_payload(
     Persist scan/asset records using the same flow as the webhook.
     Returns metadata indicating whether a new scan was created.
     """
-    validate_meta(meta_json)
+    meta_json = validate_meta(meta_json)
 
     capture_id = meta_json["capture_id"]
     grading = meta_json.get("grading") or ""

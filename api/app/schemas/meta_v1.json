@@ -114,9 +114,9 @@
       "type": ["string", "null"],
       "description": "Animal RFID tag identifier"
     },
-    "group_ID": {
+    "group_id": {
       "type": ["string", "null"],
-      "description": "External group identifier"
+      "description": "External group identifier (lowercase alias accepted alongside legacy payloads)"
     },
     "ribeye_area": {
       "type": ["number", "string", "null"],

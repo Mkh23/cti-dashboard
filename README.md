@@ -126,6 +126,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
 - Incoming metadata now captures grading labels, IMF, backfat thickness, animal weight, `Animal_RFID`, and `group_ID`, automatically creating group/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
+- Ingest applies safe defaults for missing meta fields and ignores legacy/unknown keys (e.g., old cattle_ID) so AWS payload hiccups don't block scan storage
 - Group-to-farm updates cascade farm assignment to related animals and scans so lists stay consistent after edits
 - Updated group edits to explicitly refresh related animals/scans with the new farm for consistent listings in drill-down views
 - Group farm/birth-date edits now cascade to animals so group/animal detail pages show updated farm and birth data; animal scan links respect role-specific scan paths to avoid 404s
