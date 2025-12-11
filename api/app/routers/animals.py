@@ -4,9 +4,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, constr
-from sqlalchemy.orm import Session
-
-from sqlalchemy.orm import selectinload
+from sqlalchemy import or_
+from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
 from ..models import Animal, Group, Farm, Role, Scan, User, UserFarm, UserRole
@@ -164,7 +163,10 @@ def list_animals(
     if "admin" not in role_names:
         accessible_farms = get_accessible_farm_ids(db, current)
         query = query.filter(
-            (Animal.farm_id == None) | (Animal.farm_id.in_(accessible_farms))  # noqa: E711
+            or_(
+                Animal.farm_id.in_(accessible_farms),
+                Group.farm_id.in_(accessible_farms),
+            )
         )
     if farm_id:
         query = query.filter(Animal.farm_id == farm_id)
@@ -188,8 +190,19 @@ def create_animal(
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     accessible_farms = get_accessible_farm_ids(db, current)
+    target_group = None
+    if payload.group_id:
+        target_group = db.query(Group).filter(Group.id == payload.group_id).first()
+        if not target_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+    target_farm_id = payload.farm_id
+    if target_group and target_group.farm_id:
+        if target_farm_id and target_group.farm_id != target_farm_id:
+            raise HTTPException(status_code=400, detail="Group belongs to a different farm")
+        target_farm_id = target_group.farm_id
+
     ensure_farm_permission(
-        farm_id=payload.farm_id,
+        farm_id=target_farm_id,
         role_names=role_names,
         accessible_farms=accessible_farms,
     )
@@ -205,7 +218,7 @@ def create_animal(
         breed=payload.breed,
         sex=payload.sex,
         birth_date=payload.birth_date,
-        farm_id=payload.farm_id,
+        farm_id=target_farm_id,
         group_id=payload.group_id,
     )
     db.add(animal)
@@ -230,7 +243,8 @@ def get_animal(
 
     if "admin" not in role_names:
         accessible_farms = get_accessible_farm_ids(db, current)
-        if animal.farm_id and animal.farm_id not in accessible_farms:
+        candidate_farm = animal.farm_id or (animal.group.farm_id if animal.group else None)
+        if not candidate_farm or candidate_farm not in accessible_farms:
             raise HTTPException(status_code=403, detail="Not authorized to view this animal")
 
     return serialize_animal(animal)
@@ -252,7 +266,8 @@ def get_animal_scans(
 
     if "admin" not in role_names:
         accessible_farms = get_accessible_farm_ids(db, current)
-        if animal.farm_id and animal.farm_id not in accessible_farms:
+        candidate_farm = animal.farm_id or (animal.group.farm_id if animal.group else None)
+        if not candidate_farm or candidate_farm not in accessible_farms:
             raise HTTPException(status_code=403, detail="Not authorized to view this animal")
 
     scans = (
@@ -284,7 +299,23 @@ def update_animal(
         raise HTTPException(status_code=404, detail="Animal not found")
 
     accessible_farms = get_accessible_farm_ids(db, current)
+    target_group = None
+    if payload.group_id is not None:
+        target_group = db.query(Group).filter(Group.id == payload.group_id).first()
+        if not target_group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
     farm_candidate = payload.farm_id if payload.farm_id is not None else animal.farm_id
+    if target_group and target_group.farm_id:
+        if farm_candidate and target_group.farm_id != farm_candidate:
+            raise HTTPException(status_code=400, detail="Group belongs to a different farm")
+        farm_candidate = target_group.farm_id
+
+    if farm_candidate:
+        farm = db.query(Farm).filter(Farm.id == farm_candidate).first()
+        if not farm:
+            raise HTTPException(status_code=404, detail="Farm not found")
+
     ensure_farm_permission(
         farm_id=farm_candidate,
         role_names=role_names,
@@ -310,6 +341,13 @@ def update_animal(
     if payload.group_id is not None:
         animal.group_id = payload.group_id
 
+    # Cascade farm/group changes to related scans
+    new_group_id = animal.group_id
+    db.query(Scan).filter(Scan.animal_id == animal.id).update(
+        {"farm_id": farm_candidate, "group_id": new_group_id},
+        synchronize_session=False,
+    )
+
     db.commit()
     db.refresh(animal)
     return serialize_animal(animal)
@@ -331,7 +369,8 @@ def delete_animal(
 
     if "admin" not in role_names:
         accessible_farms = get_accessible_farm_ids(db, current)
-        if animal.farm_id and animal.farm_id not in accessible_farms:
+        candidate_farm = animal.farm_id or (animal.group.farm_id if animal.group else None)
+        if not candidate_farm or candidate_farm not in accessible_farms:
             raise HTTPException(status_code=403, detail="Not authorized to delete this animal")
 
     db.delete(animal)

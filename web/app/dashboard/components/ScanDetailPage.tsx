@@ -137,6 +137,7 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -562,87 +563,6 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         </section>
       )}
 
-      <section className="card space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Assignment</h2>
-          <p className="text-xs text-gray-500">Update farm/group for this scan.</p>
-        </div>
-        <form onSubmit={handleAssignmentSubmit} className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label className="text-sm text-gray-400" htmlFor="assignment-farm">
-              Farm
-            </label>
-            <select
-              id="assignment-farm"
-              value={assignmentForm.farm_id}
-              onChange={(e) =>
-                setAssignmentForm((prev) => ({
-                  ...prev,
-                  farm_id: e.target.value,
-                  // clear group if farm changes
-                  group_id: prev.group_id && groups.find((g) => g.id === prev.group_id && g.farm_id === e.target.value)
-                    ? prev.group_id
-                    : "",
-                }))
-              }
-              className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Unassigned</option>
-              {farms.map((farm) => (
-                <option key={farm.id} value={farm.id}>
-                  {farm.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Current: {scan.farm_name ?? "Unassigned"}
-            </p>
-          </div>
-          <div>
-            <label className="text-sm text-gray-400" htmlFor="assignment-group">
-              Group
-            </label>
-            <select
-              id="assignment-group"
-              value={assignmentForm.group_id}
-              onChange={(e) =>
-                setAssignmentForm((prev) => ({
-                  ...prev,
-                  group_id: e.target.value,
-                }))
-              }
-              className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Unassigned</option>
-              {groupedOptions.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                  {group.farm_name ? ` • ${group.farm_name}` : ""}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-gray-500">
-              Current: {scan.group_name ?? "Unassigned"}
-            </p>
-          </div>
-          <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={assignmentLoading}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {assignmentLoading ? "Saving..." : "Save assignment"}
-            </button>
-            {assignmentError && (
-              <span className="text-xs text-rose-300">{assignmentError}</span>
-            )}
-            {assignmentStatus && (
-              <span className="text-xs text-emerald-300">{assignmentStatus}</span>
-            )}
-          </div>
-        </form>
-      </section>
-
       {scan.image_url && (
         <section className="card space-y-3">
           <div className="flex items-center justify-between">
@@ -874,6 +794,95 @@ export default function ScanDetailPage({ role }: { role: Role }) {
               Deletes this scan plus its events, grading records, and assets. Animals/groups remain unchanged.
             </p>
           </div>
+        )}
+      </section>
+
+      <section className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Assignment</h2>
+          <button
+            type="button"
+            onClick={() => setAssignmentOpen((prev) => !prev)}
+            className="rounded-md border border-gray-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+          >
+            {assignmentOpen ? "Hide" : "Show"}
+          </button>
+        </div>
+        {assignmentOpen && (
+          <form onSubmit={handleAssignmentSubmit} className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="text-sm text-gray-400" htmlFor="assignment-farm">
+                Farm
+              </label>
+              <select
+                id="assignment-farm"
+                value={assignmentForm.farm_id}
+                onChange={(e) =>
+                  setAssignmentForm((prev) => ({
+                    ...prev,
+                    farm_id: e.target.value,
+                    // clear group if farm changes
+                    group_id: prev.group_id && groups.find((g) => g.id === prev.group_id && g.farm_id === e.target.value)
+                      ? prev.group_id
+                      : "",
+                  }))
+                }
+                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Unassigned</option>
+                {farms.map((farm) => (
+                  <option key={farm.id} value={farm.id}>
+                    {farm.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Current: {scan.farm_name ?? "Unassigned"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm text-gray-400" htmlFor="assignment-group">
+                Group
+              </label>
+              <select
+                id="assignment-group"
+                value={assignmentForm.group_id}
+                onChange={(e) =>
+                  setAssignmentForm((prev) => ({
+                    ...prev,
+                    group_id: e.target.value,
+                  }))
+                }
+                className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Unassigned</option>
+                {groupedOptions.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                    {group.farm_name ? ` • ${group.farm_name}` : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Current: {scan.group_name ?? "Unassigned"}
+              </p>
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={assignmentLoading}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {assignmentLoading ? "Saving..." : "Save assignment"}
+              </button>
+              {assignmentError && (
+                <span className="text-xs text-rose-300">{assignmentError}</span>
+              )}
+              {assignmentStatus && (
+                <span className="text-xs text-emerald-300">{assignmentStatus}</span>
+              )}
+            </div>
+          </form>
         )}
       </section>
     </main>

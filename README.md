@@ -189,6 +189,7 @@ pytest --cov=app --cov-report=term-missing
 - Herd rename complete: all “cattle” references are now “group” across API, data model, docs, and dashboard UI.
 - Scan flows: list view shows “Added” in the user’s local time; detail view shows captured/added times in farm time (default Alberta) or browser time with MT/CT/ET/PT labels; assignment editor updates farm/group; delete action removes events, grading, assets, and best-effort S3 cleanup without blocking errors.
 - Dashboard: scan detail page now places a collapsible “Scan edit” card beneath grading history and keeps farm/group fields editable.
+- Access control: non-admin users only see animals in their permitted farms; animal farm/group edits cascade to all related scans so farm/group alignment stays consistent.
 - Tests: backend suite runs via `pytest --cov=app --cov-report=term-missing` (see [TESTING.md](TESTING.md)); coverage sits above the 80% target when Postgres is available.
 
 ## 🔒 Security posture

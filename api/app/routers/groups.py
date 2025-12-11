@@ -147,7 +147,12 @@ def group_animals(
         accessible_farms = get_accessible_farm_ids(db, current)
         if group.farm_id and group.farm_id not in accessible_farms:
             raise HTTPException(status_code=403, detail="Not authorized to view this group")
-        animals = [a for a in group.animals if (a.farm_id in accessible_farms) or a.farm_id is None]
+        animals = [
+            a
+            for a in group.animals
+            if (a.farm_id in accessible_farms)
+            or (group.farm_id in accessible_farms)
+        ]
     else:
         animals = group.animals
 

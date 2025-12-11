@@ -361,6 +361,7 @@
 - [x] Webhook ingestion tests (signature validation, schema validation, idempotency) ✅
 - [x] S3 presigned URL generation for assets ✅
 - [x] Scans API with role-based filtering and statistics ✅
+- [x] Animals: non-admin visibility scoped to user farms; animal farm/group edits cascade farm/group onto related scans
 - [ ] S3 policy/prefixes; EventBridge rule
 - [ ] Lambda signer; retries; DLQ
 **DoD:** Upload triggers scan creation in ≤5s; DLQ fills on forced errors (backend logic + tests complete; AWS integration pending)
