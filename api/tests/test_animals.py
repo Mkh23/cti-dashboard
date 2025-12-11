@@ -1,7 +1,7 @@
 """Tests for animals management endpoints."""
 import pytest
 
-from app.models import Role, User, UserRole, Farm, UserFarm, Cattle, RegistrationStatus
+from app.models import Role, User, UserRole, Farm, UserFarm, Group, RegistrationStatus
 from app.security import hash_password
 
 
@@ -73,10 +73,10 @@ def farm(test_db, farmer_user):
 
 
 @pytest.fixture
-def cattle(test_db, farm):
+def group(test_db, farm):
     session = test_db()
     try:
-        herd = Cattle(name="Animals Herd", farm_id=farm.id)
+        herd = Group(name="Animals Herd", farm_id=farm.id)
         session.add(herd)
         session.commit()
         session.refresh(herd)
@@ -85,12 +85,12 @@ def cattle(test_db, farm):
         session.close()
 
 
-def test_farmer_can_create_animal(client, farmer_token, farm, cattle):
+def test_farmer_can_create_animal(client, farmer_token, farm, group):
     payload = {
         "tag_id": "TAG-001",
         "rfid": "RFID-001",
         "farm_id": str(farm.id),
-        "cattle_id": str(cattle.id),
+        "group_id": str(group.id),
     }
     resp = client.post(
         "/animals",
@@ -100,7 +100,7 @@ def test_farmer_can_create_animal(client, farmer_token, farm, cattle):
     assert resp.status_code == 200
     data = resp.json()
     assert data["rfid"] == "RFID-001"
-    assert data["cattle_id"] == str(cattle.id)
+    assert data["group_id"] == str(group.id)
 
 
 def test_farmer_cannot_access_other_farm_animal(client, farmer_token, test_db):
@@ -110,12 +110,12 @@ def test_farmer_cannot_access_other_farm_animal(client, farmer_token, test_db):
         session.add(other_farm)
         session.commit()
         session.refresh(other_farm)
-        herd = Cattle(name="Other Herd", farm_id=other_farm.id)
+        herd = Group(name="Other Herd", farm_id=other_farm.id)
         session.add(herd)
         session.commit()
         session.refresh(herd)
         session.execute(
-            Cattle.__table__.update().where(Cattle.id == herd.id).values(name="Other Herd")
+            Group.__table__.update().where(Group.id == herd.id).values(name="Other Herd")
         )
     finally:
         session.close()
@@ -128,7 +128,7 @@ def test_farmer_cannot_access_other_farm_animal(client, farmer_token, test_db):
     assert resp.status_code == 403
 
 
-def test_admin_can_update_animal(client, admin_token, farm, cattle):
+def test_admin_can_update_animal(client, admin_token, farm, group):
     create_resp = client.post(
         "/animals",
         headers={"Authorization": f"Bearer {admin_token}"},
@@ -140,10 +140,10 @@ def test_admin_can_update_animal(client, admin_token, farm, cattle):
     update_resp = client.put(
         f"/animals/{animal_id}",
         headers={"Authorization": f"Bearer {admin_token}"},
-        json={"cattle_id": str(cattle.id)},
+        json={"group_id": str(group.id)},
     )
     assert update_resp.status_code == 200
-    assert update_resp.json()["cattle_id"] == str(cattle.id)
+    assert update_resp.json()["group_id"] == str(group.id)
 
 
 def test_admin_can_delete_animal(client, admin_token, farm):

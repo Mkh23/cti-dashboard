@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   addFarmMember,
   getFarm,
-  getFarmCattle,
+  getFarmGroups,
   me,
   removeFarmMember,
   updateFarm,
@@ -37,7 +37,7 @@ export default function FarmDetailPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [memberStatus, setMemberStatus] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
-  const [cattle, setCattle] = useState<Array<{ id: string; name: string; external_id?: string | null; born_date?: string | null }> | null>(null);
+  const [groups, setGroups] = useState<Array<{ id: string; name: string; external_id?: string | null; born_date?: string | null }> | null>(null);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
 
@@ -56,10 +56,10 @@ export default function FarmDetailPage() {
         me(token),
         getFarm(token, farmId),
       ]);
-      const cattleData = await getFarmCattle(token, farmId).catch(() => []);
+      const groupData = await getFarmGroups(token, farmId).catch(() => []);
       setProfile(profileData);
       setFarm(farmData);
-      setCattle(cattleData);
+      setGroups(groupData);
       setNameInput(farmData.name);
       setGeoLat(farmData.centroid?.lat ?? DEFAULT_LAT);
       setGeoLon(farmData.centroid?.lon ?? DEFAULT_LON);
@@ -271,17 +271,17 @@ export default function FarmDetailPage() {
 
       <section className="card space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Cattle in this farm</h2>
-          {cattle && (
-            <span className="text-sm text-gray-400">{cattle.length} total</span>
-          )}
-        </div>
-        {!cattle || cattle.length === 0 ? (
-          <p className="text-sm text-gray-500">No cattle assigned to this farm.</p>
-        ) : (
-          <div className="space-y-2">
-            {cattle.map((herd) => (
-              <div key={herd.id} className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-900/40 px-4 py-3">
+          <h2 className="text-xl font-semibold">Group in this farm</h2>
+        {groups && (
+          <span className="text-sm text-gray-400">{groups.length} total</span>
+        )}
+      </div>
+      {!groups || groups.length === 0 ? (
+        <p className="text-sm text-gray-500">No groups assigned to this farm.</p>
+      ) : (
+        <div className="space-y-2">
+          {groups.map((herd) => (
+            <div key={herd.id} className="flex items-center justify-between rounded-md border border-gray-800 bg-gray-900/40 px-4 py-3">
                 <div>
                   <div className="text-white font-semibold">{herd.name}</div>
                   <div className="text-xs text-gray-500">
@@ -289,10 +289,10 @@ export default function FarmDetailPage() {
                   </div>
                 </div>
                 <Link
-                  href={`/dashboard/cattle/${herd.id}`}
+                  href={`/dashboard/groups/${herd.id}`}
                   className="text-sm text-blue-400 hover:underline"
                 >
-                  View cattle
+                  View group
                 </Link>
               </div>
             ))}

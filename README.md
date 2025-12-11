@@ -1,6 +1,6 @@
-# CTI Dashboard — Cattle Tech Imaging Platform
+# CTI Dashboard — Group Tech Imaging Platform
 
-CTI (Cattle Tech Imaging) connects Raspberry Pi capture devices to AWS S3, ingests signed webhook events into a FastAPI backend, stores geo-aware metadata in Postgres/PostGIS, and surfaces results through a role-aware Next.js dashboard.
+CTI (Group Tech Imaging) connects Raspberry Pi capture devices to AWS S3, ingests signed webhook events into a FastAPI backend, stores geo-aware metadata in Postgres/PostGIS, and surfaces results through a role-aware Next.js dashboard.
 
 **Data flow:** Pi → S3 (raw) → EventBridge/Lambda (signed webhook) → FastAPI (ingest) → Postgres/PostGIS → Worker (grading) → Next.js dashboard.
 
@@ -121,14 +121,15 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Admin management for users and devices (`/admin/*`)
 - Role-aware farm APIs (`/farms`) so admins can view all farms while technicians and farmers manage only their own
 - Farm membership endpoints enforce that admins can add/remove anyone while farmers can invite technicians to their management group
+- Herd metadata endpoints/UI have been renamed to `/groups` (formerly cattle) while preserving the same create/view/edit flows
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
 - HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
-- Incoming metadata now captures grading labels, IMF, backfat thickness, animal weight, `Animal_RFID`, and `cattle_ID`, automatically creating cattle/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
-- Cattle-to-farm updates cascade farm assignment to related animals and scans so lists stay consistent after edits
-- Updated cattle edits to explicitly refresh related animals/scans with the new farm for consistent listings in drill-down views
-- Cattle farm/birth-date edits now cascade to animals so cattle/animal detail pages show updated farm and birth data; animal scan links respect role-specific scan paths to avoid 404s
-- Cattle updates now propagate farm + birth date to animals/scans; animal/cattle forms toggle between register/edit states based on context
+- Incoming metadata now captures grading labels, IMF, backfat thickness, animal weight, `Animal_RFID`, and `group_ID`, automatically creating group/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
+- Group-to-farm updates cascade farm assignment to related animals and scans so lists stay consistent after edits
+- Updated group edits to explicitly refresh related animals/scans with the new farm for consistent listings in drill-down views
+- Group farm/birth-date edits now cascade to animals so group/animal detail pages show updated farm and birth data; animal scan links respect role-specific scan paths to avoid 404s
+- Group updates now propagate farm + birth date to animals/scans; animal/groups forms toggle between register/edit states based on context
 - Fixed Animals form toggle (show/hide) so it initializes correctly when editing
 - Added Geofence builder stub page per farm; store your province .gpkg/.geojson files outside git (e.g., `resources/geofence/`) and wire a backend endpoint to feed the map
 - Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
@@ -150,7 +151,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Scan detail view now surfaces the device-reported grading string from `meta.json` (e.g., "AAA") alongside latest grading runs
 - Next.js build config now hard-wires the `@` alias so server builds resolve shared libs the same way as local dev
 - Backend scan API schemas now explicitly allow `model_name` / `model_version` fields via a shared Pydantic config so dev/prod logs stay noise-free
-- Shared cattle manager lets permitted roles define herds with born dates and external IDs for scan linkage
+- Shared group manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 - User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app
 - Scan listing supports label filters/badges, and scan detail pages now include a mask overlay toggle plus editable clarity/usability/label annotations
@@ -159,7 +160,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 
 ## Running tests
 
-The backend test suite now covers auth, profile, admin, farms, cattle/animals, scans, webhook flows, S3 helpers, and health probes (91 tests across `api/tests`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
+The backend test suite now covers auth, profile, admin, farms, group/animals, scans, webhook flows, S3 helpers, and health probes (91 tests across `api/tests`). A PostgreSQL instance with PostGIS is required (`TEST_DATABASE_URL` defaults to `postgresql+psycopg2://postgres:postgres@localhost:5432/cti_test`).
 
 ```bash
 cd api
@@ -186,8 +187,8 @@ pytest --cov=app --cov-report=term-missing
 - Ingest webhook with JSON Schema validation, HMAC window enforcement, idempotency, and logging
 - Scan listing/detail/statistics endpoints returning presigned URLs for assets
 - Role-aware farm ownership enforced via `/farms` endpoints and `user_farms` association with dedicated tests
-- Meta ingestion now persists all grading hints plus IMF/backfat/weight data, automatically linking scans to cattle/animals via `Animal_RFID`/`cattle_ID` or flagging them for admin assignment
-- Test suite with **~85% coverage (91 tests)** across auth, profile, admin, farm, cattle/animal, scans, webhook, S3, and health flows
+- Meta ingestion now persists all grading hints plus IMF/backfat/weight data, automatically linking scans to group/animals via `Animal_RFID`/`group_ID` or flagging them for admin assignment
+- Test suite with **~85% coverage (91 tests)** across auth, profile, admin, farm, group/animal, scans, webhook, S3, and health flows
 
 🚧 **Work in progress**
 - Frontend dashboards beyond admin stubs (technician/farmer scan viewers and grading insights)
@@ -238,10 +239,10 @@ Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practice
 - `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
 - `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role guardrails
 
-### Cattle
-- `GET /cattle` - List cattle groups scoped to the authenticated user's farms (admins see all)
-- `POST /cattle` - Create a cattle group with optional external ID and born date
-- `GET/PUT /cattle/{cattle_id}` - View or update cattle information (role-aware farm enforcement)
+### Group
+- `GET /groups` - List groups scoped to the authenticated user's farms (admins see all)
+- `POST /groups` - Create a group with optional external ID and born date
+- `GET/PUT /groups/{group_id}` - View or update group information (role-aware farm enforcement)
 
 ### Scans
 - `GET /scans` - List scans with filtering and pagination (authenticated)

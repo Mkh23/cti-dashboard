@@ -1,5 +1,5 @@
 import math
-from datetime import datetime
+from datetime import date, datetime
 from typing import Dict, List, Optional, Set
 from uuid import UUID
 
@@ -10,7 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from ..db import get_db
-from ..models import Farm, Role, User, UserFarm, UserRole, Cattle
+from ..models import Farm, Role, User, UserFarm, UserRole, Group
 from .me import get_current_user
 
 router = APIRouter()
@@ -299,15 +299,15 @@ def create_farm(
     return serialize_farm(farm, current, role_names, db)
 
 
-class FarmCattleOut(BaseModel):
+class FarmGroupOut(BaseModel):
     id: UUID
     name: str
     external_id: Optional[str]
-    born_date: Optional[datetime]
+    born_date: Optional[date]
 
 
-@router.get("/{farm_id}/cattle", response_model=List[FarmCattleOut])
-def list_farm_cattle(
+@router.get("/{farm_id}/groups", response_model=List[FarmGroupOut])
+def list_farm_groups(
     farm_id: UUID,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -325,9 +325,9 @@ def list_farm_cattle(
         if not has_access:
             raise HTTPException(status_code=403, detail="Not authorized to view this farm")
 
-    rows = db.query(Cattle).filter(Cattle.farm_id == farm_id).order_by(Cattle.name).all()
+    rows = db.query(Group).filter(Group.farm_id == farm_id).order_by(Group.name).all()
     return [
-        FarmCattleOut(
+        FarmGroupOut(
             id=row.id,
             name=row.name,
             external_id=row.external_id,

@@ -27,7 +27,7 @@ export default async function HomePage() {
 
             {/* Title full-width */}
             <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-              AI-powered Ultrasound Cattle Grading
+              AI-powered Ultrasound Group Grading
             </h1>
 
             {/* Small text under title */}

@@ -16,7 +16,7 @@
     "animal_weight": 620,
     "ribeye_area": 85.4,
     "Animal_RFID": "RFID-123-456-789",
-    "cattle_ID": "cattle-001",
+    "group_ID": "group-001",
     "inference_summary": { "ribeye_bbox": [120, 88, 420, 300], "mask_iou_hint": 0.92 },
     "grading": "AAA"
   }

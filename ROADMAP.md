@@ -129,7 +129,7 @@
 - [x] `grading_results(scan_id, model_name, model_version, inference_sha256, confidence, confidence_breakdown JSONB, features_used JSONB, created_at, created_by)`  
 - [x] `ingestion_log(capture_id, http_status, bytes_in, ms, error)`  
 - [x] `notifications(user_id, type, payload, is_read, created_at)`
-- [x] `cattle(name, external_id, born_date, farm_id)`
+- [x] `group(name, external_id, born_date, farm_id)`
 - [x] `farm_geofences(farm_id, geometry, label, created_at)`
 
 ### 5.3 Migrations (Alembic)
@@ -162,8 +162,8 @@
 - [x] `POST /scans/{scan_id}/grade` - grading simulations for admins/technicians
 - [x] S3 presigned URL generation for secure asset access ✅
 - [x] Webhook persists meta payloads and assigns farms via PostGIS geofences
-- [x] `GET/POST /cattle` + role-aware cattle metadata management
-- [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `cattle_ID`, auto-creates cattle/animals, and routes unassigned scans to admin review
+- [x] `GET/POST /groups` + role-aware group metadata management
+- [x] Webhook captures IMF/backfat/weight metrics, `Animal_RFID`, `group_ID`, auto-creates group/animals, and routes unassigned scans to admin review
 - [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [x] Scan timestamps surface in the farm's local time zone (defaulting to America/Edmonton when location data is missing) so device `captured_at` values match ranch clocks
 - [x] Admin announcement system with public landing feed + dashboard navigation overhaul for quick panel access
@@ -239,15 +239,15 @@
 - [x] Farm geofence editor (lat/lon + radius) to steer ingest routing by GPS
 - [x] Technician: Scans dashboard with status filters, grading actions, reporting cards
 - [x] Farmer: Scans dashboard with graded-result summaries and signed previews
-- [x] Shared cattle manager page for admins/technicians/farmers
+- [x] Shared group manager page for admins/technicians/farmers
 - [x] Scan detail attribute editor locks clarity/usability dropdowns to ScanQuality enums and normalizes the payload so updates can't send invalid values
 - [x] Next.js alias config stabilized so `@/lib/*` imports work in production builds
 - [x] Scan detail surfaces device-reported grading string from `meta.json`
 - [x] Animal detail pages show immutable metadata and related scans with grading + images
-- [x] Cattle→farm edits cascade to related animals/scans for consistent listings
-- [x] Cattle farm changes now also refresh related animals' farm so cattle detail shows updated farms
-- [x] Cattle birth-date + farm changes cascade into animals; animal scan links are role-aware to avoid 404s
-- [x] Cattle updates refresh animal birth/farm, and UI forms clearly switch between register/edit states for animals and cattle
+- [x] Group→farm edits cascade to related animals/scans for consistent listings
+- [x] Group farm changes now also refresh related animals' farm so group detail shows updated farms
+- [x] Group birth-date + farm changes cascade into animals; animal scan links are role-aware to avoid 404s
+- [x] Group updates refresh animal birth/farm, and UI forms clearly switch between register/edit states for animals and group
 - [x] Animals form toggle fixed (show/hide) with proper state initialization
 - [x] Farm geofence builder stub added; expects province geofence datasets (e.g., alberta.gpkg) stored outside git in `resources/geofence/`
 - [ ] Technician/Farmer: Timeline overlays, device/date filtering, export actions

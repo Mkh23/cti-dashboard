@@ -1,4 +1,4 @@
-"""Tests for cattle management endpoints."""
+"""Tests for group management endpoints."""
 import pytest
 
 from app.models import Role, User, UserRole, Farm, UserFarm, RegistrationStatus
@@ -29,12 +29,12 @@ def _create_user_with_role(db_session_factory, email: str, role_name: str) -> Us
 
 @pytest.fixture
 def admin_user(test_db):
-    return _create_user_with_role(test_db, "admin-cattle@test.com", "admin")
+    return _create_user_with_role(test_db, "admin-group@test.com", "admin")
 
 
 @pytest.fixture
 def farmer_user(test_db):
-    return _create_user_with_role(test_db, "farmer-cattle@test.com", "farmer")
+    return _create_user_with_role(test_db, "farmer-group@test.com", "farmer")
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ def other_farm(test_db):
         session.close()
 
 
-def test_admin_can_create_cattle(client, admin_token, farm):
+def test_admin_can_create_group(client, admin_token, farm):
     payload = {
         "name": "Herd Alpha",
         "external_id": "HERD-001",
@@ -93,7 +93,7 @@ def test_admin_can_create_cattle(client, admin_token, farm):
         "farm_id": str(farm.id),
     }
     resp = client.post(
-        "/cattle",
+        "/groups",
         headers={"Authorization": f"Bearer {admin_token}"},
         json=payload,
     )
@@ -104,22 +104,22 @@ def test_admin_can_create_cattle(client, admin_token, farm):
     assert data["farm_id"] == str(farm.id)
 
 
-def test_farmer_cannot_create_cattle_for_unowned_farm(client, farmer_token, other_farm):
+def test_farmer_cannot_create_group_for_unowned_farm(client, farmer_token, other_farm):
     payload = {
         "name": "Unowned Herd",
         "farm_id": str(other_farm.id),
     }
     resp = client.post(
-        "/cattle",
+        "/groups",
         headers={"Authorization": f"Bearer {farmer_token}"},
         json=payload,
     )
     assert resp.status_code == 403
 
 
-def test_farmer_lists_cattle_for_owned_farm(client, farmer_token, farm):
+def test_farmer_lists_group_for_owned_farm(client, farmer_token, farm):
     create_resp = client.post(
-        "/cattle",
+        "/groups",
         headers={"Authorization": f"Bearer {farmer_token}"},
         json={
             "name": "Owned Herd",
@@ -130,7 +130,7 @@ def test_farmer_lists_cattle_for_owned_farm(client, farmer_token, farm):
     assert create_resp.status_code == 200
 
     list_resp = client.get(
-        "/cattle",
+        "/groups",
         headers={"Authorization": f"Bearer {farmer_token}"},
     )
     assert list_resp.status_code == 200

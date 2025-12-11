@@ -111,8 +111,8 @@ export default function AnimalDetailPage() {
             <dd>{animal.farm_name ?? "Unassigned"}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-gray-400">Cattle</dt>
-            <dd>{animal.cattle_name ?? "Unassigned"}</dd>
+            <dt className="text-gray-400">Group</dt>
+            <dd>{animal.group_name ?? "Unassigned"}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-gray-400">TAG (RFID)</dt>

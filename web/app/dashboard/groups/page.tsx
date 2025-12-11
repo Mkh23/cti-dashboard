@@ -5,22 +5,22 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import {
-  createCattle,
-  listCattle,
+  createGroup,
+  listGroups,
   listFarms,
   me,
-  type Cattle,
+  type Group,
   type Farm,
   type Profile,
-  updateCattle,
+  updateGroup,
 } from "@/lib/api";
 
 const ROLE_SET = new Set(["admin", "technician", "farmer"]);
 
-function CattleManagerContent() {
+function GroupManagerContent() {
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [cattle, setCattle] = useState<Cattle[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +45,10 @@ function CattleManagerContent() {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not logged in");
 
-      const [profileResp, farmsResp, cattleResp] = await Promise.all([
+      const [profileResp, farmsResp, groupResp] = await Promise.all([
         me(token),
         listFarms(token),
-        listCattle(token, filters.farm_id || farmFilter, {
+        listGroups(token, filters.farm_id || farmFilter, {
           born_from: filters.born_from || undefined,
           born_to: filters.born_to || undefined,
           name: filters.name || undefined,
@@ -56,10 +56,10 @@ function CattleManagerContent() {
       ]);
       setProfile(profileResp);
       setFarms(farmsResp);
-      setCattle(cattleResp);
+      setGroups(groupResp);
       setError(null);
     } catch (err: any) {
-      setError(err?.message || "Failed to load cattle");
+      setError(err?.message || "Failed to load groups");
     } finally {
       setLoading(false);
     }
@@ -100,16 +100,16 @@ function CattleManagerContent() {
         farm_id: form.farm_id || undefined,
       };
       if (editingId) {
-        await updateCattle(token, editingId, payload);
+        await updateGroup(token, editingId, payload);
       } else {
-        await createCattle(token, payload);
+        await createGroup(token, payload);
       }
       resetForm();
       setEditingId(null);
       setFormOpen(false);
       await loadData();
     } catch (err: any) {
-      setError(err?.message || "Failed to save cattle");
+      setError(err?.message || "Failed to save group");
     } finally {
       setCreating(false);
     }
@@ -118,7 +118,7 @@ function CattleManagerContent() {
   if (loading) {
     return (
       <main className="p-6">
-        <p>Loading cattle...</p>
+        <p>Loading groups...</p>
       </main>
     );
   }
@@ -140,9 +140,9 @@ function CattleManagerContent() {
     <main className="mx-auto max-w-5xl px-6 py-12 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Cattle</h1>
+          <h1 className="text-3xl font-bold text-white">Groups</h1>
           <p className="mt-2 text-sm text-gray-400">
-            Define cattle groups and associate them with farms for scan assignments.
+            Define herd groups and associate them with farms for scan assignments.
           </p>
         </div>
         <Link href="/dashboard" className="text-sm text-blue-400 hover:underline">
@@ -161,9 +161,9 @@ function CattleManagerContent() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-white">
-                {editingId ? "Edit cattle group" : "Create a cattle group"}
+                {editingId ? "Edit group" : "Create a group"}
               </h2>
-              <p className="text-sm text-gray-500">Add or edit cattle groups.</p>
+              <p className="text-sm text-gray-500">Add or edit groups.</p>
             </div>
             <button
               type="button"
@@ -182,11 +182,11 @@ function CattleManagerContent() {
           {formOpen && (
             <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-1">
-                <label className="text-sm text-gray-400" htmlFor="cattle-name">
+                <label className="text-sm text-gray-400" htmlFor="group-name">
                   Name
                 </label>
                 <input
-                  id="cattle-name"
+                  id="group-name"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -196,11 +196,11 @@ function CattleManagerContent() {
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="text-sm text-gray-400" htmlFor="cattle-external">
+                <label className="text-sm text-gray-400" htmlFor="group-external">
                   External ID
                 </label>
                 <input
-                  id="cattle-external"
+                  id="group-external"
                   type="text"
                   value={form.external_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, external_id: e.target.value }))}
@@ -209,11 +209,11 @@ function CattleManagerContent() {
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="text-sm text-gray-400" htmlFor="cattle-born-date">
+                <label className="text-sm text-gray-400" htmlFor="group-born-date">
                   Born date
                 </label>
                 <input
-                  id="cattle-born-date"
+                  id="group-born-date"
                   type="date"
                   value={form.born_date}
                   onChange={(e) => setForm((prev) => ({ ...prev, born_date: e.target.value }))}
@@ -221,11 +221,11 @@ function CattleManagerContent() {
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="text-sm text-gray-400" htmlFor="cattle-farm">
+                <label className="text-sm text-gray-400" htmlFor="group-farm">
                   Farm
                 </label>
                 <select
-                  id="cattle-farm"
+                  id="group-farm"
                   value={form.farm_id}
                   onChange={(e) => setForm((prev) => ({ ...prev, farm_id: e.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -257,7 +257,7 @@ function CattleManagerContent() {
                   disabled={creating || !form.name.trim()}
                   className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {creating ? "Saving..." : editingId ? "Update cattle" : "Save cattle"}
+                  {creating ? "Saving..." : editingId ? "Update group" : "Save group"}
                 </button>
               </div>
             </form>
@@ -267,7 +267,7 @@ function CattleManagerContent() {
 
       <section className="card space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Filter cattle</h2>
+          <h2 className="text-lg font-semibold text-white">Filter groups</h2>
           <button
             type="button"
             className="rounded-md border border-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-800"
@@ -280,7 +280,7 @@ function CattleManagerContent() {
           <>
             <div className="grid gap-3 md:grid-cols-4">
               <div>
-                <label className="text-sm text-gray-400" htmlFor="filter-name">Cattle</label>
+                <label className="text-sm text-gray-400" htmlFor="filter-name">Group</label>
                 <input
                   id="filter-name"
                   type="text"
@@ -342,14 +342,14 @@ function CattleManagerContent() {
 
       <section className="card">
         <div className="flex items-center justify-between pb-4">
-          <h2 className="text-xl font-semibold text-white">Cattle list</h2>
+          <h2 className="text-xl font-semibold text-white">Group list</h2>
           <div className="flex items-center gap-2 text-sm text-gray-400">
             {farmFilter && <span>Filtered by farm</span>}
-            <span>{cattle.length} total</span>
+            <span>{groups.length} total</span>
           </div>
         </div>
-        {cattle.length === 0 ? (
-          <p className="py-8 text-center text-gray-500">No cattle defined yet.</p>
+        {groups.length === 0 ? (
+          <p className="py-8 text-center text-gray-500">No groups defined yet.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-800 text-sm">
@@ -363,14 +363,14 @@ function CattleManagerContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800 text-gray-200">
-                {cattle.map((herd) => {
+                {groups.map((herd) => {
                   const bornDate = herd.born_date
                     ? new Date(herd.born_date).toLocaleDateString()
                     : "—";
                   return (
                     <tr key={herd.id}>
                       <td className="px-4 py-3 font-semibold text-white">
-                        <Link href={`/dashboard/cattle/${herd.id}`} className="hover:text-emerald-300">
+                        <Link href={`/dashboard/groups/${herd.id}`} className="hover:text-emerald-300">
                           {herd.name}
                         </Link>
                       </td>
@@ -406,10 +406,10 @@ function CattleManagerContent() {
   );
 }
 
-export default function CattleManagerPage() {
+export default function GroupManagerPage() {
   return (
-    <Suspense fallback={<main className="p-6"><p>Loading cattle...</p></main>}>
-      <CattleManagerContent />
+    <Suspense fallback={<main className="p-6"><p>Loading groups...</p></main>}>
+      <GroupManagerContent />
     </Suspense>
   );
 }

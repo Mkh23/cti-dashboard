@@ -47,8 +47,8 @@ export default function FarmerDash() {
                 </a>
             </li>
             <li>
-              • <a className="underline" href="/dashboard/cattle">
-                  Manage Cattle →
+              • <a className="underline" href="/dashboard/groups">
+                  Manage Group →
                 </a>
             </li>
             <li>

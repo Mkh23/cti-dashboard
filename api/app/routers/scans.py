@@ -26,7 +26,7 @@ from ..models import (
     User,
     UserFarm,
     UserRole,
-    Cattle,
+    Group,
 )
 from .me import get_current_user
 from ..s3_utils import generate_presigned_url
@@ -81,9 +81,9 @@ class ScanOut(ScanApiModel):
     mask_asset_id: Optional[UUID]
     created_at: datetime
     latest_grading: Optional[LatestGradingOut] = None
-    cattle_id: Optional[UUID]
-    cattle_name: Optional[str]
-    cattle_external_id: Optional[str]
+    group_id: Optional[UUID]
+    group_name: Optional[str]
+    group_external_id: Optional[str]
     imf: Optional[float]
     backfat_thickness: Optional[float]
     animal_weight: Optional[float]
@@ -277,9 +277,9 @@ def serialize_scan_summary(scan: Scan) -> ScanOut:
         mask_asset_id=scan.mask_asset_id,
         created_at=scan.created_at,
         latest_grading=latest,
-        cattle_id=scan.cattle_id,
-        cattle_name=scan.cattle.name if scan.cattle else None,
-        cattle_external_id=scan.cattle.external_id if scan.cattle else None,
+        group_id=scan.group_id,
+        group_name=scan.group.name if scan.group else None,
+        group_external_id=scan.group.external_id if scan.group else None,
         imf=decimal_to_float(scan.imf),
         backfat_thickness=decimal_to_float(scan.backfat_thickness),
         animal_weight=decimal_to_float(scan.animal_weight),
@@ -329,7 +329,7 @@ def load_scan_with_related(db: Session, scan_id: UUID) -> Scan:
             selectinload(Scan.image_asset),
             selectinload(Scan.mask_asset),
             selectinload(Scan.grading_results).selectinload(GradingResult.creator),
-            selectinload(Scan.cattle),
+            selectinload(Scan.group),
         )
         .populate_existing()
         .filter(Scan.id == scan_id)
@@ -379,7 +379,7 @@ def list_scans(
             selectinload(Scan.image_asset),
             selectinload(Scan.mask_asset),
             selectinload(Scan.grading_results),
-            selectinload(Scan.cattle),
+            selectinload(Scan.group),
         )
     )
 

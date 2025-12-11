@@ -1,4 +1,4 @@
-"""add cattle table and scan metrics
+"""add group table and scan metrics
 
 Revision ID: c844da55a7a7
 Revises: 615f4fc9f620
@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "cattle",
+        "groups",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("external_id", sa.Text(), nullable=True, unique=True),
@@ -30,43 +30,43 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.text("timezone('utc', now())")),
         sa.Column("updated_at", sa.DateTime(), nullable=False, server_default=sa.text("timezone('utc', now())")),
     )
-    op.create_index("ix_cattle_farm_id", "cattle", ["farm_id"])
+    op.create_index("ix_groups_farm_id", "groups", ["farm_id"])
 
-    op.add_column("scans", sa.Column("cattle_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("cattle.id", ondelete="SET NULL"), nullable=True))
+    op.add_column("scans", sa.Column("group_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("groups.id", ondelete="SET NULL"), nullable=True))
     op.add_column("scans", sa.Column("imf", sa.Numeric(6, 4), nullable=True))
     op.add_column("scans", sa.Column("backfat_thickness", sa.Numeric(6, 3), nullable=True))
     op.add_column("scans", sa.Column("animal_weight", sa.Numeric(10, 2), nullable=True))
     op.add_column("scans", sa.Column("animal_rfid", sa.Text(), nullable=True))
-    op.create_index("ix_scans_cattle_id", "scans", ["cattle_id"])
+    op.create_index("ix_scans_group_id", "scans", ["group_id"])
     op.create_index("ix_scans_animal_rfid", "scans", ["animal_rfid"])
 
     op.add_column("animals", sa.Column("rfid", sa.Text(), nullable=True))
     op.add_column(
         "animals",
         sa.Column(
-            "cattle_id",
+            "group_id",
             postgresql.UUID(as_uuid=True),
-            sa.ForeignKey("cattle.id", ondelete="SET NULL"),
+            sa.ForeignKey("groups.id", ondelete="SET NULL"),
             nullable=True,
         ),
     )
     op.create_index("ix_animals_rfid", "animals", ["rfid"], unique=True)
-    op.create_index("ix_animals_cattle_id", "animals", ["cattle_id"])
+    op.create_index("ix_animals_group_id", "animals", ["group_id"])
 
 
 def downgrade() -> None:
-    op.drop_index("ix_animals_cattle_id", table_name="animals")
+    op.drop_index("ix_animals_group_id", table_name="animals")
     op.drop_index("ix_animals_rfid", table_name="animals")
-    op.drop_column("animals", "cattle_id")
+    op.drop_column("animals", "group_id")
     op.drop_column("animals", "rfid")
 
     op.drop_index("ix_scans_animal_rfid", table_name="scans")
-    op.drop_index("ix_scans_cattle_id", table_name="scans")
+    op.drop_index("ix_scans_group_id", table_name="scans")
     op.drop_column("scans", "animal_rfid")
     op.drop_column("scans", "animal_weight")
     op.drop_column("scans", "backfat_thickness")
     op.drop_column("scans", "imf")
-    op.drop_column("scans", "cattle_id")
+    op.drop_column("scans", "group_id")
 
-    op.drop_index("ix_cattle_farm_id", table_name="cattle")
-    op.drop_table("cattle")
+    op.drop_index("ix_groups_farm_id", table_name="groups")
+    op.drop_table("groups")

@@ -154,10 +154,10 @@ export default function FarmManagerPage() {
                     </div>
                     <div className="flex gap-2">
                       <Link
-                        href={`/dashboard/cattle?farm_id=${farm.id}`}
+                        href={`/dashboard/groups?farm_id=${farm.id}`}
                         className="rounded-md border border-gray-700 px-4 py-2 text-white hover:bg-gray-700"
                       >
-                        Cattles list
+                        Groups list
                       </Link>
                       <Link
                         href={`/dashboard/farms/${farm.id}`}

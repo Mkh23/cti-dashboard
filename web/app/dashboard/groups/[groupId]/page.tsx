@@ -4,19 +4,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { getCattle, getCattleAnimals, type Animal, type Cattle } from "@/lib/api";
+import { getGroup, getGroupAnimals, type Animal, type Group } from "@/lib/api";
 
-export default function CattleDetailPage() {
-  const params = useParams<{ cattleId: string }>();
-  const cattleId = params?.cattleId;
-  const [cattle, setCattle] = useState<Cattle | null>(null);
+export default function GroupDetailPage() {
+  const params = useParams<{ groupId: string }>();
+  const groupId = params?.groupId;
+  const [group, setGroup] = useState<Group | null>(null);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
-      if (!cattleId) return;
+      if (!groupId) return;
       const token = localStorage.getItem("token");
       if (!token) {
         setError("Not logged in");
@@ -24,31 +24,31 @@ export default function CattleDetailPage() {
         return;
       }
       try {
-        const [cattleResp, animalsResp] = await Promise.all([
-          getCattle(token, cattleId),
-          getCattleAnimals(token, cattleId),
+        const [groupResp, animalsResp] = await Promise.all([
+          getGroup(token, groupId),
+          getGroupAnimals(token, groupId),
         ]);
-        setCattle(cattleResp);
+        setGroup(groupResp);
         setAnimals(animalsResp);
         setError(null);
       } catch (err: any) {
-        setError(err?.message || "Failed to load cattle");
+        setError(err?.message || "Failed to load group");
       } finally {
         setLoading(false);
       }
     };
     void run();
-  }, [cattleId]);
+  }, [groupId]);
 
   if (loading) {
     return (
       <main className="p-6">
-        <p>Loading cattle...</p>
+        <p>Loading group...</p>
       </main>
     );
   }
 
-  if (error || !cattle) {
+  if (error || !group) {
     return (
       <main className="p-6 space-y-4">
         {error && (
@@ -56,8 +56,8 @@ export default function CattleDetailPage() {
             {error}
           </div>
         )}
-        <Link href="/dashboard/cattle" className="text-sm text-blue-400 hover:underline">
-          ← Back to cattle
+        <Link href="/dashboard/groups" className="text-sm text-blue-400 hover:underline">
+          ← Back to groups
         </Link>
       </main>
     );
@@ -67,17 +67,17 @@ export default function CattleDetailPage() {
     <main className="mx-auto max-w-6xl px-6 py-12 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/dashboard/cattle" className="text-sm text-blue-400 hover:underline">
-            ← Back to cattle
+          <Link href="/dashboard/groups" className="text-sm text-blue-400 hover:underline">
+            ← Back to groups
           </Link>
-          <h1 className="mt-2 text-3xl font-bold text-white">Cattle: {cattle.name}</h1>
-          <p className="text-sm text-gray-400">External ID: {cattle.external_id ?? "—"}</p>
-          <p className="text-sm text-gray-400">Farm: {cattle.farm_name ?? "Unassigned"}</p>
+          <h1 className="mt-2 text-3xl font-bold text-white">Group: {group.name}</h1>
+          <p className="text-sm text-gray-400">External ID: {group.external_id ?? "—"}</p>
+          <p className="text-sm text-gray-400">Farm: {group.farm_name ?? "Unassigned"}</p>
         </div>
       </div>
 
       <section className="card space-y-3 text-sm text-gray-300">
-        <h2 className="text-xl font-semibold text-white">Animals in this cattle</h2>
+        <h2 className="text-xl font-semibold text-white">Animals in this group</h2>
         {animals.length === 0 ? (
           <p className="text-gray-500">No animals assigned.</p>
         ) : (

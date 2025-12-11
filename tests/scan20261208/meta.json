@@ -28,7 +28,7 @@
   "animal_weight": 620,
   "ribeye_area": 85.4,
   "Animal_RFID": "RFID-123-456-789",
-  "cattle_ID": "cattle-001",
+  "group_ID": "group-001",
   "grading": "AAA",
   "operator_id": "op-7788",
   "farm_id": "farm-1234",

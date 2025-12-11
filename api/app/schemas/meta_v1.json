@@ -114,9 +114,9 @@
       "type": ["string", "null"],
       "description": "Animal RFID tag identifier"
     },
-    "cattle_ID": {
+    "group_ID": {
       "type": ["string", "null"],
-      "description": "External cattle identifier"
+      "description": "External group identifier"
     },
     "ribeye_area": {
       "type": ["number", "string", "null"],

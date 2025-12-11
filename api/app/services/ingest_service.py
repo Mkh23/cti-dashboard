@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from ..models import (
     Animal,
     Asset,
-    Cattle,
+    Group,
     Device,
     Farm,
     FarmGeofence,
@@ -64,32 +64,32 @@ def normalize_quality(value: Optional[object]) -> Optional[str]:
     return None
 
 
-def get_or_create_cattle(
+def get_or_create_group(
     db: Session,
     *,
     external_id: Optional[str],
     farm_id: Optional[UUID],
     name_hint: Optional[str],
-) -> Optional[Cattle]:
+) -> Optional[Group]:
     if not external_id and not name_hint:
         return None
 
-    query = db.query(Cattle)
+    query = db.query(Group)
     if external_id:
-        cattle = query.filter(Cattle.external_id == external_id).first()
-        if cattle:
-            if farm_id and not cattle.farm_id:
-                cattle.farm_id = farm_id
-            return cattle
+        group = query.filter(Group.external_id == external_id).first()
+        if group:
+            if farm_id and not group.farm_id:
+                group.farm_id = farm_id
+            return group
 
-    cattle = Cattle(
+    group = Group(
         name=name_hint or external_id or "Auto herd",
         external_id=external_id,
         farm_id=farm_id,
     )
-    db.add(cattle)
+    db.add(group)
     db.flush()
-    return cattle
+    return group
 
 
 def get_or_create_animal(
@@ -97,17 +97,17 @@ def get_or_create_animal(
     *,
     rfid: Optional[str],
     farm_id: Optional[UUID],
-    cattle: Optional[Cattle],
+    group: Optional[Group],
 ) -> Optional[Animal]:
-    if not rfid and not cattle:
+    if not rfid and not group:
         return None
 
     if rfid:
         animal = db.query(Animal).filter(Animal.rfid == rfid).first()
         if animal:
             updated = False
-            if cattle and animal.cattle_id != cattle.id:
-                animal.cattle_id = cattle.id
+            if group and animal.group_id != group.id:
+                animal.group_id = group.id
                 updated = True
             if farm_id and animal.farm_id != farm_id:
                 animal.farm_id = farm_id
@@ -120,7 +120,7 @@ def get_or_create_animal(
         tag_id=rfid or f"auto-tag-{datetime.utcnow().timestamp()}",
         rfid=rfid,
         farm_id=farm_id,
-        cattle_id=cattle.id if cattle else None,
+        group_id=group.id if group else None,
     )
     db.add(animal)
     db.flush()
@@ -201,7 +201,7 @@ def ingest_scan_from_payload(
     animal_weight = parse_decimal(meta_json.get("animal_weight"))
     ribeye_area = parse_decimal(meta_json.get("ribeye_area"))
     animal_rfid = meta_json.get("Animal_RFID") or meta_json.get("animal_rfid")
-    cattle_external_id = meta_json.get("cattle_ID") or meta_json.get("cattle_id")
+    group_external_id = meta_json.get("group_ID") or meta_json.get("group_id")
     clarity_value = normalize_quality(meta_json.get("clarity"))
     usability_value = normalize_quality(meta_json.get("usability"))
     label_value = meta_json.get("label")
@@ -274,20 +274,20 @@ def ingest_scan_from_payload(
         gps_point = ST_SetSRID(ST_MakePoint(gps["lon"], gps["lat"]), 4326)
         farm_id = find_farm_for_point(db, gps_point)
 
-    cattle_name = meta_json.get("cattle_name") or cattle_external_id
-    cattle = get_or_create_cattle(
+    group_name = meta_json.get("group_name") or group_external_id
+    group = get_or_create_group(
         db,
-        external_id=cattle_external_id,
+        external_id=group_external_id,
         farm_id=farm_id,
-        name_hint=cattle_name,
+        name_hint=group_name,
     )
     animal = get_or_create_animal(
         db,
         rfid=animal_rfid,
-        farm_id=farm_id or (cattle.farm_id if cattle else None),
-        cattle=cattle,
+        farm_id=farm_id or (group.farm_id if group else None),
+        group=group,
     )
-    cattle_id = cattle.id if cattle else None
+    group_id = group.id if group else None
 
     scan = Scan(
         capture_id=capture_id,
@@ -301,7 +301,7 @@ def ingest_scan_from_payload(
         farm_id=farm_id,
         grading=grading,
         meta=meta_json,
-        cattle_id=cattle_id,
+        group_id=group_id,
         imf=imf,
         backfat_thickness=backfat_value,
         animal_weight=animal_weight,

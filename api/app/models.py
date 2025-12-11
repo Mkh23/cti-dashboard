@@ -97,7 +97,7 @@ class Farm(Base):
 
     user_links = relationship("UserFarm", back_populates="farm", cascade="all, delete-orphan")
     geofences = relationship("FarmGeofence", back_populates="farm", cascade="all, delete-orphan")
-    cattle = relationship("Cattle", back_populates="farm", cascade="all, delete-orphan")
+    groups = relationship("Group", back_populates="farm", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("idx_farms_geofence_gist", geofence, postgresql_using="gist"),
@@ -119,8 +119,8 @@ class FarmGeofence(Base):
     )
 
 
-class Cattle(Base):
-    __tablename__ = "cattle"
+class Group(Base):
+    __tablename__ = "groups"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     external_id: Mapped[Optional[str]] = mapped_column(Text, unique=True, nullable=True)
@@ -129,9 +129,9 @@ class Cattle(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    farm = relationship("Farm", back_populates="cattle")
-    scans = relationship("Scan", back_populates="cattle")
-    animals = relationship("Animal", back_populates="cattle")
+    farm = relationship("Farm", back_populates="groups")
+    scans = relationship("Scan", back_populates="group")
+    animals = relationship("Animal", back_populates="group")
 
 
 class Animal(Base):
@@ -144,14 +144,14 @@ class Animal(Base):
     sex: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     birth_date: Mapped[Optional[datetime]] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    cattle_id = Column(UUID(as_uuid=True), ForeignKey("cattle.id", ondelete="SET NULL"), nullable=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="SET NULL"), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("farm_id", "tag_id", name="uq_farm_animal_tag"),
     )
 
     farm = relationship("Farm")
-    cattle = relationship("Cattle", back_populates="animals")
+    group = relationship("Group", back_populates="animals")
     scans = relationship("Scan", back_populates="animal")
 
 
@@ -210,7 +210,7 @@ class Scan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     grading = Column(Text, nullable=True)
     meta = Column(JSONB, nullable=True)
-    cattle_id = Column(UUID(as_uuid=True), ForeignKey("cattle.id", ondelete="SET NULL"), nullable=True)
+    group_id = Column(UUID(as_uuid=True), ForeignKey("groups.id", ondelete="SET NULL"), nullable=True)
     imf = Column(Numeric(6, 4), nullable=True)
     backfat_thickness = Column(Numeric(6, 3), nullable=True)
     animal_weight = Column(Numeric(10, 2), nullable=True)
@@ -237,7 +237,7 @@ class Scan(Base):
         back_populates="scan",
         cascade="all, delete-orphan",
     )
-    cattle = relationship("Cattle", back_populates="scans")
+    group = relationship("Group", back_populates="scans")
 
 
 # ============ Scan Events ============

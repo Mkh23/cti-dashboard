@@ -6,13 +6,13 @@ import Link from "next/link";
 import {
   createAnimal,
   listAnimals,
-  listCattle,
+  listGroups,
   listFarms,
   me,
   updateAnimal,
   deleteAnimal,
   type Animal,
-  type Cattle,
+  type Group,
   type Farm,
   type Profile,
 } from "@/lib/api";
@@ -22,7 +22,7 @@ const ROLE_SET = new Set(["admin", "technician", "farmer"]);
 export default function AnimalsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [animals, setAnimals] = useState<Animal[]>([]);
-  const [cattle, setCattle] = useState<Cattle[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function AnimalsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState({ farm_id: "", cattle_id: "", tag: "" });
+  const [filters, setFilters] = useState({ farm_id: "", group_id: "", tag: "" });
   const [form, setForm] = useState({
     tag_id: "",
     rfid: "",
@@ -38,7 +38,7 @@ export default function AnimalsPage() {
     sex: "",
     born_date: "",
     farm_id: "",
-    cattle_id: "",
+    group_id: "",
   });
 
   const canManage = profile?.roles?.some((role) => ROLE_SET.has(role)) ?? false;
@@ -48,19 +48,19 @@ export default function AnimalsPage() {
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Not logged in");
-      const [profileResp, farmsResp, cattleResp, animalsResp] = await Promise.all([
+      const [profileResp, farmsResp, groupsResp, animalsResp] = await Promise.all([
         me(token),
         listFarms(token),
-        listCattle(token),
+        listGroups(token),
         listAnimals(token, {
           farm_id: filters.farm_id || undefined,
-          cattle_id: filters.cattle_id || undefined,
+          group_id: filters.group_id || undefined,
           tag: filters.tag || undefined,
         }),
       ]);
       setProfile(profileResp);
       setFarms(farmsResp);
-      setCattle(cattleResp);
+      setGroups(groupsResp);
       setAnimals(animalsResp);
       setError(null);
     } catch (err: any) {
@@ -88,7 +88,7 @@ export default function AnimalsPage() {
       sex: "",
       born_date: "",
       farm_id: "",
-      cattle_id: "",
+      group_id: "",
     });
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -105,7 +105,7 @@ export default function AnimalsPage() {
         sex: form.sex.trim() || undefined,
         birth_date: form.born_date || undefined,
         farm_id: form.farm_id || undefined,
-        cattle_id: form.cattle_id || undefined,
+        group_id: form.group_id || undefined,
       };
       if (editingId) {
         await updateAnimal(token, editingId, payload);
@@ -148,7 +148,7 @@ export default function AnimalsPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Animals</h1>
           <p className="mt-2 text-sm text-gray-400">
-            Maintain animal records, RFIDs, and cattle assignments for your farms.
+            Maintain animal records, RFIDs, and group assignments for your farms.
           </p>
         </div>
         <Link href="/dashboard" className="text-sm text-blue-400 hover:underline">
@@ -194,15 +194,15 @@ export default function AnimalsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-400" htmlFor="filter-cattle">Cattle</label>
+                  <label className="text-sm text-gray-400" htmlFor="filter-group">Group</label>
                   <select
-                    id="filter-cattle"
-                    value={filters.cattle_id}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, cattle_id: e.target.value }))}
+                    id="filter-group"
+                    value={filters.group_id}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, group_id: e.target.value }))}
                     className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">All</option>
-                    {cattle.map((herd) => (
+                    {groups.map((herd) => (
                       <option key={herd.id} value={herd.id}>
                         {herd.name}
                       </option>
@@ -342,17 +342,17 @@ export default function AnimalsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400" htmlFor="animal-cattle">
-                  Cattle
+                <label className="text-sm text-gray-400" htmlFor="animal-group">
+                  Group
                 </label>
                 <select
-                  id="animal-cattle"
-                  value={form.cattle_id}
-                  onChange={(e) => setForm((prev) => ({ ...prev, cattle_id: e.target.value }))}
+                  id="animal-group"
+                  value={form.group_id}
+                  onChange={(e) => setForm((prev) => ({ ...prev, group_id: e.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Unassigned</option>
-                  {cattle.map((herd) => (
+                  {groups.map((herd) => (
                     <option key={herd.id} value={herd.id}>
                       {herd.name}
                     </option>
@@ -401,7 +401,7 @@ export default function AnimalsPage() {
                   <th className="px-4 py-3">Tag</th>
                   <th className="px-4 py-3">RFID</th>
                   <th className="px-4 py-3">Farm</th>
-                  <th className="px-4 py-3">Cattle</th>
+                  <th className="px-4 py-3">Group</th>
                   <th className="px-4 py-3">Breed/Sex</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -416,7 +416,7 @@ export default function AnimalsPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-400">{animal.rfid || "—"}</td>
                     <td className="px-4 py-3 text-gray-300">{animal.farm_name || "Unassigned"}</td>
-                    <td className="px-4 py-3 text-gray-300">{animal.cattle_name || "Unassigned"}</td>
+                    <td className="px-4 py-3 text-gray-300">{animal.group_name || "Unassigned"}</td>
                     <td className="px-4 py-3 text-gray-400">
                       {(animal.breed || "—")}/{animal.sex || "?"}
                     </td>
@@ -433,7 +433,7 @@ export default function AnimalsPage() {
                             sex: animal.sex || "",
                             born_date: animal.birth_date || "",
                             farm_id: animal.farm_id || "",
-                            cattle_id: animal.cattle_id || "",
+                            group_id: animal.group_id || "",
                           });
                           setFormOpen(true);
                         }}

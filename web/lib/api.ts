@@ -238,9 +238,9 @@ export type Scan = {
   mask_asset_id?: string | null;
   created_at: string;
   latest_grading?: LatestGrading | null;
-  cattle_id?: string | null;
-  cattle_name?: string | null;
-  cattle_external_id?: string | null;
+  group_id?: string | null;
+  group_name?: string | null;
+  group_external_id?: string | null;
   imf?: number | null;
   backfat_thickness?: number | null;
   animal_weight?: number | null;
@@ -434,7 +434,7 @@ export type Farm = {
   geofence_exists?: boolean;
 };
 
-export type Cattle = {
+export type Group = {
   id: string;
   name: string;
   external_id?: string | null;
@@ -454,8 +454,8 @@ export type Animal = {
   birth_date?: string | null;
   farm_id?: string | null;
   farm_name?: string | null;
-  cattle_id?: string | null;
-  cattle_name?: string | null;
+  group_id?: string | null;
+  group_name?: string | null;
   created_at: string;
 };
 
@@ -520,7 +520,7 @@ export async function createFarm(
   return res.json() as Promise<Farm>;
 }
 
-export async function listCattle(
+export async function listGroups(
   token: string,
   farmId?: string,
   options?: { born_from?: string; born_to?: string; name?: string }
@@ -531,22 +531,22 @@ export async function listCattle(
   if (options?.born_to) query.set("born_to", options.born_to);
   if (options?.name) query.set("name", options.name);
   const qs = query.toString();
-  const res = await fetch(`${API_BASE}/cattle${qs ? `?${qs}` : ""}`, {
+  const res = await fetch(`${API_BASE}/groups${qs ? `?${qs}` : ""}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to fetch cattle");
+    throw new Error(txt || "Failed to fetch groups");
   }
-  return res.json() as Promise<Cattle[]>;
+  return res.json() as Promise<Group[]>;
 }
 
-export async function createCattle(
+export async function createGroup(
   token: string,
   data: { name: string; external_id?: string; born_date?: string; farm_id?: string }
 ) {
-  const res = await fetch(`${API_BASE}/cattle`, {
+  const res = await fetch(`${API_BASE}/groups`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -556,17 +556,17 @@ export async function createCattle(
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to create cattle");
+    throw new Error(txt || "Failed to create group");
   }
-  return res.json() as Promise<Cattle>;
+  return res.json() as Promise<Group>;
 }
 
-export async function updateCattle(
+export async function updateGroup(
   token: string,
-  cattleId: string,
+  groupId: string,
   data: { name?: string; external_id?: string; born_date?: string; farm_id?: string }
 ) {
-  const res = await fetch(`${API_BASE}/cattle/${cattleId}`, {
+  const res = await fetch(`${API_BASE}/groups/${groupId}`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -576,18 +576,18 @@ export async function updateCattle(
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to update cattle");
+    throw new Error(txt || "Failed to update group");
   }
-  return res.json() as Promise<Cattle>;
+  return res.json() as Promise<Group>;
 }
 
 export async function listAnimals(
   token: string,
-  params?: { farm_id?: string; cattle_id?: string; tag?: string }
+  params?: { farm_id?: string; group_id?: string; tag?: string }
 ) {
   const query = new URLSearchParams();
   if (params?.farm_id) query.set("farm_id", params.farm_id);
-  if (params?.cattle_id) query.set("cattle_id", params.cattle_id);
+  if (params?.group_id) query.set("group_id", params.group_id);
   if (params?.tag) query.set("tag", params.tag);
   const qs = query.toString();
   const res = await fetch(`${API_BASE}/animals${qs ? `?${qs}` : ""}`, {
@@ -610,7 +610,7 @@ export async function createAnimal(
     sex?: string;
     birth_date?: string;
     farm_id?: string;
-    cattle_id?: string;
+    group_id?: string;
   }
 ) {
   const res = await fetch(`${API_BASE}/animals`, {
@@ -638,7 +638,7 @@ export async function updateAnimal(
     sex?: string;
     birth_date?: string;
     farm_id?: string;
-    cattle_id?: string;
+    group_id?: string;
   }
 ) {
   const res = await fetch(`${API_BASE}/animals/${animalId}`, {
@@ -691,38 +691,38 @@ export async function getAnimalScans(token: string, animalId: string) {
   return res.json() as Promise<AnimalScan[]>;
 }
 
-export async function getCattle(token: string, cattleId: string) {
-  const res = await fetch(`${API_BASE}/cattle/${cattleId}`, {
+export async function getGroup(token: string, groupId: string) {
+  const res = await fetch(`${API_BASE}/groups/${groupId}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to fetch cattle");
+    throw new Error(txt || "Failed to fetch group");
   }
-  return res.json() as Promise<Cattle>;
+  return res.json() as Promise<Group>;
 }
 
-export async function getCattleAnimals(token: string, cattleId: string) {
-  const res = await fetch(`${API_BASE}/cattle/${cattleId}/animals`, {
+export async function getGroupAnimals(token: string, groupId: string) {
+  const res = await fetch(`${API_BASE}/groups/${groupId}/animals`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to fetch cattle animals");
+    throw new Error(txt || "Failed to fetch group animals");
   }
   return res.json() as Promise<Animal[]>;
 }
 
-export async function getFarmCattle(token: string, farmId: string) {
-  const res = await fetch(`${API_BASE}/farms/${farmId}/cattle`, {
+export async function getFarmGroups(token: string, farmId: string) {
+  const res = await fetch(`${API_BASE}/farms/${farmId}/groups`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
   if (!res.ok) {
     const txt = await res.text();
-    throw new Error(txt || "Failed to fetch farm cattle");
+    throw new Error(txt || "Failed to fetch farm groups");
   }
   return res.json() as Promise<Array<{ id: string; name: string; external_id?: string | null; born_date?: string | null }>>;
 }

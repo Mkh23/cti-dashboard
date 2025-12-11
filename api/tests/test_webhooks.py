@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from geoalchemy2 import WKTElement
 
-from app.models import Asset, Device, Scan, Farm, FarmGeofence, Cattle
+from app.models import Asset, Device, Scan, Farm, FarmGeofence, Group
 
 
 def create_hmac_signature(timestamp: str, body: str, secret: str = "dev_secret_change_me") -> str:
@@ -35,7 +35,7 @@ def create_valid_meta_json(capture_id: str, device_code: str) -> dict:
         "backfat_thickness": 0.8,
         "animal_weight": 1234.5,
         "Animal_RFID": "RFID-123",
-        "cattle_ID": "HERD-001",
+        "group_ID": "HERD-001",
         "ribeye_area": 78.4,
         "clarity": "Good",
         "usability": "medium",
@@ -61,14 +61,14 @@ def test_device(test_db):
 
 def test_webhook_valid_payload(client, test_device, test_db):
     """Webhook accepts valid signed payload."""
-    # ensure cattle exists for assignment
+    # ensure group exists for assignment
     db = test_db()
     try:
-        herd = Cattle(name="Existing Herd", external_id="HERD-001")
+        herd = Group(name="Existing Herd", external_id="HERD-001")
         db.add(herd)
         db.commit()
         db.refresh(herd)
-        cattle_id = herd.id
+        group_id = herd.id
     finally:
         db.close()
 
@@ -111,7 +111,7 @@ def test_webhook_valid_payload(client, test_device, test_db):
         assert scan.animal_weight is not None
         assert float(scan.animal_weight) == pytest.approx(1234.5)
         assert scan.animal_rfid == "RFID-123"
-        assert scan.cattle_id == cattle_id
+        assert scan.group_id == group_id
         assert scan.ribeye_area is not None
         assert float(scan.ribeye_area) == pytest.approx(78.4)
         assert scan.clarity.value == "good"

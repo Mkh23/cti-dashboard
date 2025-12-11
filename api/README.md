@@ -70,16 +70,16 @@ CORS_ORIGINS=http://localhost:3000
 - `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
 - `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role restrictions
 
-### Cattle
+### Groups
 
-- `GET /cattle` - List cattle groups (admins see all, others are scoped to their farms)
-- `POST /cattle` - Create a cattle group with optional external ID and born date
-- `GET/PUT /cattle/{cattle_id}` - View or update cattle metadata (role-aware farm enforcement)
+- `GET /groups` - List groups (admins see all, others are scoped to their farms)
+- `POST /groups` - Create a group with optional external ID and born date
+- `GET/PUT /groups/{group_id}` - View or update group metadata (role-aware farm enforcement)
 
 ### Animals
 
 - `GET /animals` - List animals tied to the caller's farms (admins can see all)
-- `POST /animals` - Create an animal with optional RFID/tag metadata and farm/cattle linkage
+- `POST /animals` - Create an animal with optional RFID/tag metadata and farm/groups linkage
 - `GET/PUT /animals/{animal_id}` - View or update an animal record with the same farm guardrails
 
 ### Scans
@@ -105,9 +105,9 @@ CORS_ORIGINS=http://localhost:3000
   - `me.py` – current user info via bearer token
   - `admin.py` – user/device management (admin-only)
   - `farms.py` – farm management with role-aware ownership controls
-  - `cattle.py` – cattle manager endpoints
+  - `group.py` – group manager endpoints
   - `scans.py` – scan list/detail/stats, grading actions, and presigned URLs
-  - `webhooks.py` – signed ingest webhook that stores meta payloads (IMF/backfat/weight/Animal_RFID/cattle_ID) and auto-assigns farms/cattle/animals using geofences
+- `webhooks.py` – signed ingest webhook that stores meta payloads (IMF/backfat/weight/Animal_RFID/group_ID) and auto-assigns farms/groups/animals using geofences
 - `app/s3_utils.py` – presigned URL helper
 - `app/schemas/meta_v1.json` – ingest contract enforced on webhook payloads
 

@@ -51,7 +51,7 @@ export function DashboardNav() {
         ...base,
         { href: "/dashboard/admin", label: "Admin" },
         { href: "/dashboard/farms", label: "Farms" },
-        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: "/dashboard/groups", label: "Groups" },
         { href: "/dashboard/animals", label: "Animals" },
         { href: scansHref, label: "Scans" },
         { href: "/dashboard/admin/announcements", label: "Admin Notes" },
@@ -61,7 +61,7 @@ export function DashboardNav() {
       return [
         ...base,
         { href: "/dashboard/technician", label: "Technician" },
-        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: "/dashboard/groups", label: "Groups" },
         { href: "/dashboard/animals", label: "Animals" },
         { href: scansHref, label: "Scans" },
       ];
@@ -71,7 +71,7 @@ export function DashboardNav() {
         ...base,
         { href: "/dashboard/farmer", label: "Farmer" },
         { href: "/dashboard/farms", label: "Farms" },
-        { href: "/dashboard/cattle", label: "Cattle" },
+        { href: "/dashboard/groups", label: "Groups" },
         { href: "/dashboard/animals", label: "Animals" },
         { href: scansHref, label: "Scans" },
       ];

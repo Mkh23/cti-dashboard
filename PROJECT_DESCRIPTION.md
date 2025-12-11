@@ -1,5 +1,5 @@
 # CTI Platform — Project Description
-**Name:** CTI (Cattle Tech Imaging) — Ultrasound Capture, Grading & Insights  
+**Name:** CTI (Group Tech Imaging) — Ultrasound Capture, Grading & Insights  
 **Repo:** `Mkh23/cti-dashboard` • **Region:** `ca-central-1` • **Dev bucket:** `cti-dev-406214277746`  
 **Last updated:** 2025-10-07
 

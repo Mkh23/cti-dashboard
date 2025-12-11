@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 
 from ..db import get_db
-from ..models import Animal, Cattle, Farm, Role, Scan, User, UserFarm, UserRole
+from ..models import Animal, Group, Farm, Role, Scan, User, UserFarm, UserRole
 from ..s3_utils import generate_presigned_url
 from .me import get_current_user
 
@@ -27,8 +27,8 @@ class AnimalOut(BaseModel):
     birth_date: Optional[date]
     farm_id: Optional[UUID]
     farm_name: Optional[str]
-    cattle_id: Optional[UUID]
-    cattle_name: Optional[str]
+    group_id: Optional[UUID]
+    group_name: Optional[str]
     created_at: datetime
 
     class Config:
@@ -59,7 +59,7 @@ class AnimalCreate(BaseModel):
     sex: Optional[str] = None
     birth_date: Optional[date] = None
     farm_id: Optional[UUID] = None
-    cattle_id: Optional[UUID] = None
+    group_id: Optional[UUID] = None
 
 
 class AnimalUpdate(BaseModel):
@@ -69,7 +69,7 @@ class AnimalUpdate(BaseModel):
     sex: Optional[str] = None
     birth_date: Optional[date] = None
     farm_id: Optional[UUID] = None
-    cattle_id: Optional[UUID] = None
+    group_id: Optional[UUID] = None
 
 
 def get_role_names(db: Session, user: User) -> Set[str]:
@@ -117,8 +117,8 @@ def serialize_animal(instance: Animal) -> AnimalOut:
         birth_date=instance.birth_date,
         farm_id=instance.farm_id,
         farm_name=instance.farm.name if instance.farm else None,
-        cattle_id=instance.cattle_id,
-        cattle_name=instance.cattle.name if instance.cattle else None,
+        group_id=instance.group_id,
+        group_name=instance.group.name if instance.group else None,
         created_at=instance.created_at,
     )
 
@@ -151,7 +151,7 @@ def serialize_animal_scan(scan: Scan) -> AnimalScanOut:
 @router.get("", response_model=List[AnimalOut])
 def list_animals(
     farm_id: Optional[UUID] = None,
-    cattle_id: Optional[UUID] = None,
+    group_id: Optional[UUID] = None,
     tag: Optional[str] = None,
     current: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -160,7 +160,7 @@ def list_animals(
     if not role_names & ALLOWED_ROLES:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
-    query = db.query(Animal).outerjoin(Farm).outerjoin(Cattle)
+    query = db.query(Animal).outerjoin(Farm).outerjoin(Group)
     if "admin" not in role_names:
         accessible_farms = get_accessible_farm_ids(db, current)
         query = query.filter(
@@ -168,8 +168,8 @@ def list_animals(
         )
     if farm_id:
         query = query.filter(Animal.farm_id == farm_id)
-    if cattle_id:
-        query = query.filter(Animal.cattle_id == cattle_id)
+    if group_id:
+        query = query.filter(Animal.group_id == group_id)
     if tag:
         like = f"%{tag}%"
         query = query.filter(Animal.tag_id.ilike(like))
@@ -206,7 +206,7 @@ def create_animal(
         sex=payload.sex,
         birth_date=payload.birth_date,
         farm_id=payload.farm_id,
-        cattle_id=payload.cattle_id,
+        group_id=payload.group_id,
     )
     db.add(animal)
     db.commit()
@@ -307,8 +307,8 @@ def update_animal(
     if payload.birth_date is not None:
         animal.birth_date = payload.birth_date
     animal.farm_id = farm_candidate
-    if payload.cattle_id is not None:
-        animal.cattle_id = payload.cattle_id
+    if payload.group_id is not None:
+        animal.group_id = payload.group_id
 
     db.commit()
     db.refresh(animal)
