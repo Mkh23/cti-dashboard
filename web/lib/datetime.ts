@@ -42,6 +42,12 @@ export function formatDateTime(
 ): string {
   if (!value) return "—";
 
+  const hasTimeZoneInfo = (iso: string) =>
+    /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso.trim());
+
+  const normalizedValue =
+    typeof value === "string" && !hasTimeZoneInfo(value) ? `${value}Z` : value;
+
   const timeZone = options.timeZone ?? options.fallbackTimeZone;
   const formatterOptions: Intl.DateTimeFormatOptions = {
     year: "numeric",
@@ -53,8 +59,8 @@ export function formatDateTime(
   };
 
   try {
-    return new Intl.DateTimeFormat("en-CA", formatterOptions).format(new Date(value));
+    return new Intl.DateTimeFormat("en-CA", formatterOptions).format(new Date(normalizedValue));
   } catch {
-    return new Date(value).toLocaleString();
+    return new Date(normalizedValue).toLocaleString();
   }
 }

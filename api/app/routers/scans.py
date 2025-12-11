@@ -2,6 +2,7 @@
 Scans API endpoints for viewing and managing scans.
 Implements listing, detail views, and scan actions with role-based access control.
 """
+import logging
 from decimal import Decimal, ROUND_HALF_UP
 from random import uniform
 from typing import Dict, List, Optional, Set, Literal
@@ -19,17 +20,20 @@ from ..models import (
     Device,
     Farm,
     GradingResult,
+    Group,
     Role,
     Scan,
+    ScanEvent,
     ScanStatus,
     ScanQuality,
     User,
     UserFarm,
     UserRole,
-    Group,
 )
 from .me import get_current_user
-from ..s3_utils import generate_presigned_url
+from ..s3_utils import generate_presigned_url, delete_object, delete_prefix_objects
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -140,6 +144,11 @@ class ScanAttributesUpdate(ScanApiModel):
         extra = "forbid"
 
 
+class ScanAssignmentUpdate(ScanApiModel):
+    farm_id: Optional[UUID] = None
+    group_id: Optional[UUID] = None
+
+
 # ============ Helper Functions ============
 
 CONFIDENCE_STEP = Decimal("0.0001")
@@ -215,6 +224,20 @@ def ensure_scan_access(
     if scan.operator_id == user.id:
         return
     raise HTTPException(status_code=403, detail="Not authorized to access this scan")
+
+
+def ensure_farm_access_for_update(
+    *,
+    farm_id: Optional[UUID],
+    role_names: Set[str],
+    accessible_farms: Set[UUID],
+) -> None:
+    if farm_id is None:
+        return
+    if "admin" in role_names:
+        return
+    if farm_id not in accessible_farms:
+        raise HTTPException(status_code=403, detail="Not authorized to assign this farm")
 
 
 def quantize_confidence(value: Optional[float]) -> Optional[Decimal]:
@@ -548,3 +571,99 @@ def update_scan_attributes(
 
     refreshed = load_scan_with_related(db, scan_id)
     return serialize_scan_detail(refreshed)
+
+
+@router.patch("/{scan_id}/assignment", response_model=ScanDetailOut)
+def update_scan_assignment(
+    scan_id: UUID,
+    payload: ScanAssignmentUpdate,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update farm/group association for a scan."""
+    role_names = get_user_roles(current, db)
+    scan = load_scan_with_related(db, scan_id)
+    ensure_scan_access(scan, db, current, role_names)
+
+    if "admin" not in role_names and "technician" not in role_names and "farmer" not in role_names:
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+    accessible_farms = get_accessible_farm_ids(db, current)
+
+    new_farm_id = payload.farm_id if payload.farm_id is not None else scan.farm_id
+    group = None
+    if payload.group_id is not None:
+        group = db.query(Group).filter(Group.id == payload.group_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+
+    if group and group.farm_id:
+        if new_farm_id and group.farm_id != new_farm_id:
+            raise HTTPException(status_code=400, detail="Group belongs to a different farm")
+        new_farm_id = group.farm_id
+
+    if new_farm_id:
+        farm = db.query(Farm).filter(Farm.id == new_farm_id).first()
+        if not farm:
+            raise HTTPException(status_code=404, detail="Farm not found")
+        ensure_farm_access_for_update(
+            farm_id=new_farm_id, role_names=role_names, accessible_farms=accessible_farms
+        )
+
+    scan.group_id = payload.group_id
+    scan.farm_id = new_farm_id
+
+    db.commit()
+    updated_scan = load_scan_with_related(db, scan.id)
+    return serialize_scan_detail(updated_scan)
+
+
+@router.delete("/{scan_id}")
+def delete_scan(
+    scan_id: UUID,
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a scan and related grading records."""
+    role_names = get_user_roles(current, db)
+    scan = load_scan_with_related(db, scan_id)
+    if "admin" not in role_names:
+        raise HTTPException(status_code=403, detail="Only admins can delete scans")
+    ensure_scan_access(scan, db, current, role_names)
+
+    # Remove dependent rows first to satisfy FK constraints
+    db.query(ScanEvent).filter(ScanEvent.scan_id == scan.id).delete(synchronize_session=False)
+    db.query(GradingResult).filter(GradingResult.scan_id == scan.id).delete(synchronize_session=False)
+
+    # Attempt to delete the entire capture folder (image/mask/meta) before removing asset rows
+    prefix_source = scan.image_asset or scan.mask_asset
+    if prefix_source and prefix_source.bucket and prefix_source.object_key:
+        folder_prefix = prefix_source.object_key.rsplit("/", 1)[0]
+        try:
+            deleted_count = delete_prefix_objects(prefix_source.bucket, folder_prefix)
+            if deleted_count is None:
+                logger.warning("Failed to delete S3 prefix %s/%s", prefix_source.bucket, folder_prefix)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Error deleting S3 prefix %s/%s: %s", prefix_source.bucket, folder_prefix, exc)
+
+    # Delete from S3 before removing asset rows
+    if scan.image_asset:
+        try:
+            deleted = delete_object(scan.image_asset.bucket, scan.image_asset.object_key)
+            if not deleted:
+                logger.warning("Could not delete image object %s/%s", scan.image_asset.bucket, scan.image_asset.object_key)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Error deleting image object %s/%s: %s", scan.image_asset.bucket, scan.image_asset.object_key, exc)
+        db.delete(scan.image_asset)
+    if scan.mask_asset:
+        try:
+            deleted = delete_object(scan.mask_asset.bucket, scan.mask_asset.object_key)
+            if not deleted:
+                logger.warning("Could not delete mask object %s/%s", scan.mask_asset.bucket, scan.mask_asset.object_key)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Error deleting mask object %s/%s: %s", scan.mask_asset.bucket, scan.mask_asset.object_key, exc)
+        db.delete(scan.mask_asset)
+
+    db.delete(scan)
+    db.commit()
+    return {"message": "Scan deleted", "id": str(scan_id)}

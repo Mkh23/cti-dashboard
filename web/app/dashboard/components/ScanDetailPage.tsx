@@ -8,9 +8,14 @@ import {
   gradeScan,
   getScan,
   listFarms,
+  listGroups,
   me,
   updateScanAttributes,
+  updateScanAssignment,
+  deleteScan,
   type GradeScanPayload,
+  type Group,
+  type Farm,
   type Profile,
   type ScanDetail,
   type ScanQuality,
@@ -80,6 +85,21 @@ const QUALITY_OPTIONS: { value: "" | ScanQuality; label: string }[] = [
 const toQualityOrNull = (value: "" | ScanQuality): ScanQuality | null =>
   value === "" ? null : value;
 
+const tzLabel = (value?: string) => {
+  const map: Record<string, string> = {
+    "America/Edmonton": "MT",
+    "America/Denver": "MT",
+    "America/Phoenix": "MT",
+    "America/Chicago": "CT",
+    "America/New_York": "ET",
+    "America/Los_Angeles": "PT",
+    "America/Vancouver": "PT",
+  };
+  if (value && map[value]) return map[value];
+  if (value) return value;
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Browser local";
+};
+
 export default function ScanDetailPage({ role }: { role: Role }) {
   const params = useParams<{ scanId: string }>();
   const scanId = params?.scanId;
@@ -90,6 +110,8 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [farmTimeZones, setFarmTimeZones] = useState<Record<string, string>>({});
+  const [farms, setFarms] = useState<Farm[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
 
   const [gradeForm, setGradeForm] = useState<GradeFormState>({
     model_name: "cti-sim",
@@ -108,12 +130,30 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [attributesLoading, setAttributesLoading] = useState(false);
   const [attributesError, setAttributesError] = useState<string | null>(null);
   const [attributesSuccess, setAttributesSuccess] = useState<string | null>(null);
+  const [assignmentForm, setAssignmentForm] = useState<{ farm_id: string; group_id: string }>({
+    farm_id: "",
+    group_id: "",
+  });
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const browserTimeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    []
+  );
 
   const detailBasePath = useMemo(() => `/dashboard/${role}/scans`, [role]);
   const farmTimeZone = useMemo(
     () => (scan?.farm_id ? farmTimeZones[scan.farm_id] ?? DEFAULT_FARM_TIME_ZONE : undefined),
     [farmTimeZones, scan?.farm_id]
   );
+  const groupedOptions = useMemo(() => {
+    const targetFarm = assignmentForm.farm_id || scan?.farm_id || null;
+    return groups.filter((g) => !targetFarm || g.farm_id === targetFarm);
+  }, [assignmentForm.farm_id, groups, scan?.farm_id]);
 
   const refreshScan = useCallback(
     async (token: string, id: string) => {
@@ -128,6 +168,10 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         label: data.label ?? "",
         clarity: (data.clarity as ScanQuality | null) ?? "",
         usability: (data.usability as ScanQuality | null) ?? "",
+      });
+      setAssignmentForm({
+        farm_id: data.farm_id ?? "",
+        group_id: data.group_id ?? "",
       });
       setShowMask(false);
     },
@@ -158,9 +202,16 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         setProfile(profileData);
         try {
           const farms = await listFarms(token);
+          setFarms(farms);
           setFarmTimeZones(buildFarmTimeZoneMap(farms));
         } catch {
           setFarmTimeZones({});
+        }
+        try {
+          const groupsData = await listGroups(token);
+          setGroups(groupsData);
+        } catch {
+          setGroups([]);
         }
         await refreshScan(token, scanId);
         setError(null);
@@ -231,6 +282,46 @@ export default function ScanDetailPage({ role }: { role: Role }) {
     }
   };
 
+  const handleAssignmentSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!scan) return;
+    setAssignmentLoading(true);
+    setAssignmentError(null);
+    setAssignmentStatus(null);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not logged in");
+      const payload = {
+        farm_id: assignmentForm.farm_id || null,
+        group_id: assignmentForm.group_id || null,
+      };
+      const updated = await updateScanAssignment(token, scan.id, payload);
+      setScan(updated);
+      setAssignmentStatus("Assignment updated.");
+    } catch (err: any) {
+      setAssignmentError(err?.message || "Failed to update assignment");
+    } finally {
+      setAssignmentLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!scan) return;
+    if (!window.confirm("Delete this scan permanently? This cannot be undone.")) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not logged in");
+      await deleteScan(token, scan.id);
+      router.push(detailBasePath);
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete scan");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="p-6">
@@ -292,12 +383,14 @@ export default function ScanDetailPage({ role }: { role: Role }) {
               <dd>{formatDateTime(scan.captured_at, { timeZone: farmTimeZone })}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-gray-400">Created</dt>
-              <dd>{formatDateTime(scan.created_at, { timeZone: farmTimeZone })}</dd>
+              <dt className="text-gray-400">Added at</dt>
+              <dd>{formatDateTime(scan.created_at, { timeZone: browserTimeZone })}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-400">Timezone</dt>
-              <dd>{farmTimeZone ?? "Browser local"}</dd>
+              <dd>
+                Captured: {tzLabel(farmTimeZone)} • Added: {tzLabel(browserTimeZone)}
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-gray-400">Reported grading</dt>
@@ -468,6 +561,87 @@ export default function ScanDetailPage({ role }: { role: Role }) {
           </div>
         </section>
       )}
+
+      <section className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Assignment</h2>
+          <p className="text-xs text-gray-500">Update farm/group for this scan.</p>
+        </div>
+        <form onSubmit={handleAssignmentSubmit} className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="text-sm text-gray-400" htmlFor="assignment-farm">
+              Farm
+            </label>
+            <select
+              id="assignment-farm"
+              value={assignmentForm.farm_id}
+              onChange={(e) =>
+                setAssignmentForm((prev) => ({
+                  ...prev,
+                  farm_id: e.target.value,
+                  // clear group if farm changes
+                  group_id: prev.group_id && groups.find((g) => g.id === prev.group_id && g.farm_id === e.target.value)
+                    ? prev.group_id
+                    : "",
+                }))
+              }
+              className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unassigned</option>
+              {farms.map((farm) => (
+                <option key={farm.id} value={farm.id}>
+                  {farm.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Current: {scan.farm_name ?? "Unassigned"}
+            </p>
+          </div>
+          <div>
+            <label className="text-sm text-gray-400" htmlFor="assignment-group">
+              Group
+            </label>
+            <select
+              id="assignment-group"
+              value={assignmentForm.group_id}
+              onChange={(e) =>
+                setAssignmentForm((prev) => ({
+                  ...prev,
+                  group_id: e.target.value,
+                }))
+              }
+              className="mt-1 w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Unassigned</option>
+              {groupedOptions.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                  {group.farm_name ? ` • ${group.farm_name}` : ""}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Current: {scan.group_name ?? "Unassigned"}
+            </p>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={assignmentLoading}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {assignmentLoading ? "Saving..." : "Save assignment"}
+            </button>
+            {assignmentError && (
+              <span className="text-xs text-rose-300">{assignmentError}</span>
+            )}
+            {assignmentStatus && (
+              <span className="text-xs text-emerald-300">{assignmentStatus}</span>
+            )}
+          </div>
+        </form>
+      </section>
 
       {scan.image_url && (
         <section className="card space-y-3">
@@ -666,6 +840,39 @@ export default function ScanDetailPage({ role }: { role: Role }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">Scan edit</h2>
+          <button
+            type="button"
+            onClick={() => setEditOpen((prev) => !prev)}
+            className="rounded-md border border-gray-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800"
+          >
+            {editOpen ? "Hide" : "Show"}
+          </button>
+        </div>
+        {editOpen && (
+          <div className="space-y-3">
+            {deleteError && (
+              <div className="rounded-md border border-rose-500 bg-rose-500/10 p-2 text-xs text-rose-200">
+                {deleteError}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleteLoading}
+              className="rounded-md border border-rose-500 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {deleteLoading ? "Deleting..." : "Delete scan"}
+            </button>
+            <p className="text-xs text-gray-500">
+              Deletes this scan plus its events, grading records, and assets. Animals/groups remain unchanged.
+            </p>
           </div>
         )}
       </section>

@@ -392,6 +392,38 @@ export async function updateScanAttributes(
   return res.json() as Promise<ScanDetail>;
 }
 
+export async function updateScanAssignment(
+  token: string,
+  scanId: string,
+  data: { farm_id?: string | null; group_id?: string | null }
+) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}/assignment`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update scan assignment");
+  }
+  return res.json() as Promise<ScanDetail>;
+}
+
+export async function deleteScan(token: string, scanId: string) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to delete scan");
+  }
+  return res.json() as Promise<{ message: string; id: string }>;
+}
+
 // Admin API
 
 export type FarmOwner = {

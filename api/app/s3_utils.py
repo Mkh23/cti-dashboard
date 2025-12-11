@@ -41,11 +41,51 @@ def generate_presigned_url(
             "Failed to generate presigned URL for %s/%s: %s", bucket, key, exc
         )
         return None
+
+
+def delete_object(bucket: str, key: str) -> bool:
+    """Delete an object from S3, returning True on success."""
+    try:
+        s3 = get_s3_client()
+        s3.delete_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as exc:
+        logger.warning("Failed to delete S3 object %s/%s: %s", bucket, key, exc)
+        return False
     except Exception as exc:  # pragma: no cover - defensive safeguard
-        logger.error(
-            "Unexpected error generating presigned URL for %s/%s: %s",
-            bucket,
-            key,
-            exc,
-        )
+        logger.error("Unexpected error deleting S3 object %s/%s: %s", bucket, key, exc)
+        return False
+
+
+def delete_prefix_objects(bucket: str, prefix: str) -> Optional[int]:
+    """
+    Delete all objects under a prefix. Returns count deleted, or None on failure.
+    Best-effort cleanup; intended for purging a capture folder (image/mask/meta).
+    """
+    try:
+        s3 = get_s3_client()
+        deleted = 0
+        normalized_prefix = prefix if prefix.endswith("/") else f"{prefix}/"
+        continuation = None
+        while True:
+            params = {"Bucket": bucket, "Prefix": normalized_prefix}
+            if continuation:
+                params["ContinuationToken"] = continuation
+            resp = s3.list_objects_v2(**params)
+            contents = resp.get("Contents", [])
+            if not contents:
+                break
+            # Batch delete up to 1000 keys per call
+            objects = [{"Key": obj["Key"]} for obj in contents]
+            s3.delete_objects(Bucket=bucket, Delete={"Objects": objects})
+            deleted += len(objects)
+            if not resp.get("IsTruncated"):
+                break
+            continuation = resp.get("NextContinuationToken")
+        return deleted
+    except ClientError as exc:
+        logger.warning("Failed to delete S3 prefix %s/%s: %s", bucket, prefix, exc)
+        return None
+    except Exception as exc:  # pragma: no cover - defensive safeguard
+        logger.error("Unexpected error deleting S3 prefix %s/%s: %s", bucket, prefix, exc)
         return None

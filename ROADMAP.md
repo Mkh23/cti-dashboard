@@ -167,6 +167,8 @@
 - [x] Ingest now tolerates missing meta fields by applying defaults and ignores legacy/unknown keys to keep AWS payloads flowing
 - [x] Scan viewer shows mask overlay + ribeye/quality metadata with editable clarity/usability/label annotations and label-based filtering
 - [x] Scan timestamps surface in the farm's local time zone (defaulting to America/Edmonton when location data is missing) so device `captured_at` values match ranch clocks
+- [x] Scans can be deleted safely and reassigned to farms/groups directly from the scan detail page; scan list shows “Added” in local browser time
+- [x] Scan deletion now removes associated S3 assets to avoid orphaned objects
 - [x] Admin announcement system with public landing feed + dashboard navigation overhaul for quick panel access
 - [x] Dashboard nav exposes Home/Scans links, branded role-aware routing, and sign-out controls, only surfaces links relevant to each role, and the marketing home page keeps CTAs plus announcements front-and-center
 - [x] Login screen offers Home and Request Access shortcuts so users can recover easily from deep links

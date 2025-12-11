@@ -118,6 +118,10 @@ export default function ScanListPage({ role }: { role: Role }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const browserTimeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    []
+  );
 
   const statusOptions = useMemo<StatusFilter[]>(() => ["all", ...STATUS_ORDER], []);
   const farmOptions = useMemo(() => {
@@ -348,7 +352,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                 </select>
               </div>
               <div>
-                <label className="text-sm text-gray-400" htmlFor="filter-created-from">Created from</label>
+                <label className="text-sm text-gray-400" htmlFor="filter-created-from">Added from</label>
                 <input
                   id="filter-created-from"
                   type="date"
@@ -358,7 +362,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-400" htmlFor="filter-created-to">Created to</label>
+                <label className="text-sm text-gray-400" htmlFor="filter-created-to">Added to</label>
                 <input
                   id="filter-created-to"
                   type="date"
@@ -422,7 +426,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                  <th className="px-4 py-3">Label</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Latest grading</th>
-                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3">Added</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -487,7 +491,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                               {latest.model_version ?? "—"}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {formatDateTime(latest.created_at, { timeZone: timeZoneForScan(scan) })}
+                              {formatDateTime(latest.created_at)}
                             </div>
                           </div>
                         ) : reportedGrade ? (
@@ -501,7 +505,7 @@ export default function ScanListPage({ role }: { role: Role }) {
                         )}
                       </td>
                       <td className="px-4 py-4 text-sm text-gray-400">
-                        {formatDateTime(scan.created_at, { timeZone: timeZoneForScan(scan) })}
+                        {formatDateTime(scan.created_at, { timeZone: browserTimeZone })}
                       </td>
                       <td className="px-4 py-4 text-right">
                         <Link

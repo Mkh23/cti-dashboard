@@ -150,6 +150,8 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Dedicated scan dashboards for admins, technicians, and farmers with status filters, stats, grading controls, and signed media previews
 - Scan detail editor now enforces clarity/usability dropdowns with type-safe enums and payload normalization so updates can't submit invalid values or fail builds
 - Scan detail view now surfaces the device-reported grading string from `meta.json` (e.g., "AAA") alongside latest grading runs
+- Scan detail page now supports deleting scans and editing farm/group assignment, with list timestamps shown as “Added” in the user’s local time
+- Scan deletion now also removes associated S3 image/mask objects to keep storage tidy
 - Next.js build config now hard-wires the `@` alias so server builds resolve shared libs the same way as local dev
 - Backend scan API schemas now explicitly allow `model_name` / `model_version` fields via a shared Pydantic config so dev/prod logs stay noise-free
 - Shared group manager lets permitted roles define herds with born dates and external IDs for scan linkage
@@ -182,138 +184,26 @@ pytest --cov=app --cov-report=term-missing
 
 ## Project status snapshot
 
-✅ **Backend foundations**
-- Alembic-backed schema covering auth, farms/devices, scans/assets/events, and grading scaffolding
-- Auth + role enforcement with admin-only management APIs and comprehensive unit/integration tests in `tests/`
-- Ingest webhook with JSON Schema validation, HMAC window enforcement, idempotency, and logging
-- Scan listing/detail/statistics endpoints returning presigned URLs for assets
-- Role-aware farm ownership enforced via `/farms` endpoints and `user_farms` association with dedicated tests
-- Meta ingestion now persists all grading hints plus IMF/backfat/weight data, automatically linking scans to group/animals via `Animal_RFID`/`group_ID` or flagging them for admin assignment
-- Test suite with **~85% coverage (91 tests)** across auth, profile, admin, farm, group/animal, scans, webhook, S3, and health flows
+- Backend foundations shipped: Alembic schema, auth/RBAC, role-aware farms/devices/groups/animals, scans/assets/events, grading scaffolding, and S3 helpers.
+- Ingest hardened: `meta_v1.json` validation applies safe defaults, ignores legacy `cattle_ID`, and accepts AWS payloads even when optional fields are missing.
+- Herd rename complete: all “cattle” references are now “group” across API, data model, docs, and dashboard UI.
+- Scan flows: list view shows “Added” in the user’s local time; detail view shows captured/added times in farm time (default Alberta) or browser time with MT/CT/ET/PT labels; assignment editor updates farm/group; delete action removes events, grading, assets, and best-effort S3 cleanup without blocking errors.
+- Dashboard: scan detail page now places a collapsible “Scan edit” card beneath grading history and keeps farm/group fields editable.
+- Tests: backend suite runs via `pytest --cov=app --cov-report=term-missing` (see [TESTING.md](TESTING.md)); coverage sits above the 80% target when Postgres is available.
 
-🚧 **Work in progress**
-- Frontend dashboards beyond admin stubs (technician/farmer scan viewers and grading insights)
-- AWS infrastructure wiring (EventBridge rule, Lambda signer, DLQ replay)
-- Automated provisioning of environment secrets and TLS termination
-
-🛣️ **Next milestones** (see ROADMAP for detail)
-- Flesh out scan viewer, grading insights, and farmer reporting in the Next.js app
-- Stand up worker pipeline for grading results and overlays
-- Implement observability, lifecycle policies, and CI/CD deploy automation
-
-# Run specific test files
-pytest tests/test_auth.py
-pytest tests/test_admin.py
-pytest tests/test_webhooks.py
-\`\`\`
-
-**Test Coverage:** ~93% when Postgres is available (73 tests)
-- Auth endpoints: 12 tests, 100% coverage ✅
-- Admin endpoints: 16 tests, 83% coverage ✅
-- Scans endpoints: 19 tests, 95% coverage ✅
-- Webhooks: 6 tests, 89% coverage ✅
-- S3 utilities: 6 tests, 100% coverage ✅
-- Health checks: 2 tests, 100% coverage ✅
-
-Tests use a separate PostgreSQL database (\`cti_test\`) and follow best practices with isolated fixtures.
-
-## 🔑 Key API Endpoints
-
-### Authentication
-- `POST /auth/register` - Register user (first user becomes admin)
-- `POST /auth/login` - Login (returns JWT token)
-- `GET /me` - Current user profile with roles
-
-### Profile Management
-- `GET /me` - Get current user profile (email, name, phone, address, roles)
-- `PUT /me` - Update user profile (name, phone, address)
-- `POST /me/password` - Change password
-
-### Admin
-- `GET/POST /admin/users` - Manage users (admin only)
-- `GET/POST /admin/devices` - Manage devices (admin)
-
-### Farms
-- `GET /farms` - List farms available to the current user (admins see all)
-- `POST /farms` - Create a farm (admins, technicians, and farmers)
-- `GET/PUT /farms/{farm_id}` - View or update farms you own; admins can update any farm
-- `POST /farms/{farm_id}/members` - Add a user to the farm management group (admins any role, farmers technicians only)
-- `DELETE /farms/{farm_id}/members/{user_id}` - Remove a user from the management group with the same role guardrails
-
-### Group
-- `GET /groups` - List groups scoped to the authenticated user's farms (admins see all)
-- `POST /groups` - Create a group with optional external ID and born date
-- `GET/PUT /groups/{group_id}` - View or update group information (role-aware farm enforcement)
-
-### Scans
-- `GET /scans` - List scans with filtering and pagination (authenticated)
-- `GET /scans/{scan_id}` - Get scan details with presigned URLs for assets
-- `GET /scans/stats` - Get scan statistics (total, by status, recent)
-- `POST /scans/{scan_id}/grade` - Trigger a grading run (admins and technicians)
-
-### Ingest
-- `POST /ingest/webhook` - Receive S3 notifications (HMAC required)
-
-### Health
-- `GET /healthz` - Health check
-- `GET /readyz` - Database connectivity check
-
-## 🎯 Project Status
-
-✅ **Completed**
-- Database schema with Alembic migrations
-- User authentication and RBAC (with comprehensive tests)
-- Webhook ingest with HMAC validation (with tests)
-- Admin APIs for users and devices (with comprehensive tests)
-- Role-aware farm APIs covering admins, technicians, and farmers (with comprehensive tests)
-- PostGIS integration
-- **S3 presigned URL generation for secure asset access**
-- **Enhanced scans API with role-based filtering, statistics, and grading triggers**
-- **Role-based scan dashboards delivering stats, signed media previews, and grading controls**
-- **Webhook persistence of meta payloads with automatic farm assignment via PostGIS geofences**
-- Test suite with **~93% coverage** (73 tests passing when Postgres is available)
-  - Auth module: 100% coverage (12 tests)
-  - Admin module: 83% coverage (16 tests)
-  - Scans module: 95% coverage (19 tests)
-  - Webhooks: 89% coverage (6 tests)
-  - S3 utils: 100% coverage (6 tests)
-  - Models & Schemas: 100% coverage
-  - Security module: 100% coverage
-
-🚧 **In Progress**
-- Expanded analytics overlays (timeline, annotations) for scan viewer
-- AWS integration (EventBridge, Lambda, DLQ)
-
-📋 **Planned**
-- Grading worker pipeline
-- Herd-level reporting and notifications for farmers
-- Monitoring and CI/CD
-
-See [ROADMAP.md](ROADMAP.md) for details.
-
-## 🔒 Security
-
-- HMAC signatures for webhooks
-- JWT tokens for API auth
-- RBAC with three roles
-- CORS protection
-- Store secrets in environment variables
-
-## 📦 Environment Variables
-
-\`\`\`bash
-# API
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/cti
-JWT_SECRET=your_secret_here
-HMAC_SECRET=your_secret_here
-CORS_ORIGINS=http://localhost:3000
-## Security posture
+## 🔒 Security posture
 
 - JWT auth with bcrypt hashing and expiry windows
 - HMAC-signed webhooks with timestamp drift enforcement
-- Strict CORS configuration derived from `CORS_ORIGINS` env var
-- Role checks for admin surfaces in both API and dashboard routes
+- Strict CORS derived from `CORS_ORIGINS`
+- Role checks enforced in API and dashboard routes
 
-## License
+## 🔑 Key API Endpoints
 
-Specify project license before release.
+- `POST /auth/register|login`, `GET/PUT /me`
+- `GET/POST /admin/users`, `GET/POST /admin/devices`
+- `GET/POST /farms`, `GET/POST /groups`, `GET/PUT /groups/{id}`
+- `GET /scans`, `GET /scans/{id}`, `PATCH /scans/{id}`, `PATCH /scans/{id}/assignment`
+- `DELETE /scans/{id}` (admin-only) removes related events/results and attempts S3 cleanup
+- `POST /scans/{id}/grade`
+- `POST /ingest/webhook` (HMAC + JSON Schema validation)
