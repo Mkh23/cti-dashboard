@@ -17,9 +17,10 @@ def test_webhook_hmac_ok():
             "device_code":"dev-pytest",
             "capture_id":"cap_1700000000",
             "captured_at":"2025-10-06T16:15:00Z",
-            "files":{"image_relpath":"image.jpg","mask_relpath":"mask.png"},
+            "files":{"image_relpath":"image.jpg","mask_relpath":"mask.png","backfat_line_relpath":"backfat_line.png"},
             "image_sha256":"0"*64,
             "mask_sha256":"1"*64,
+            "backfat_line_sha256":"2"*64,
             "probe":{"model":"linear-5-10"},
             "firmware":{"app_version":"rpi-ultra-0.1.0"}
         },

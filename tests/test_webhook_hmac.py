@@ -15,12 +15,17 @@ def load_sample_payload():
     image_path = SAMPLE_DIR / meta["files"]["image_relpath"]
     mask_rel = meta["files"].get("mask_relpath")
     mask_path = SAMPLE_DIR / mask_rel if mask_rel else None
+    backfat_rel = meta["files"].get("backfat_line_relpath")
+    backfat_path = SAMPLE_DIR / backfat_rel if backfat_rel else None
     img = image_path.read_bytes()
     mask = mask_path.read_bytes() if mask_path and mask_path.exists() else None
+    backfat = backfat_path.read_bytes() if backfat_path and backfat_path.exists() else None
     meta["image_sha256"] = hashlib.sha256(img).hexdigest()
     if mask:
         meta["mask_sha256"] = hashlib.sha256(mask).hexdigest()
-    return img, mask, meta
+    if backfat:
+        meta["backfat_line_sha256"] = hashlib.sha256(backfat).hexdigest()
+    return img, mask, backfat, meta
 
 def sign(ts: str, body: bytes) -> str:
     return hmac.new(SECRET.encode(), f"{ts}.{body.decode()}".encode(), hashlib.sha256).hexdigest()
@@ -28,7 +33,7 @@ def sign(ts: str, body: bytes) -> str:
 def test_webhook_hmac_ok():
     device_code = os.environ.get("CTI_DEVICE_CODE", "dev-pytest")
     bucket = os.environ.get("CTI_BUCKET", "cti-dev-406214277746")
-    img, mask, meta_template = load_sample_payload()
+    img, mask, backfat, meta_template = load_sample_payload()
     epoch = int(time.time())
     cap_id = f"cap_{epoch}"
     dt = datetime.utcfromtimestamp(epoch)
@@ -37,6 +42,8 @@ def test_webhook_hmac_ok():
     objects = [meta_template["files"]["image_relpath"]]
     if meta_template["files"].get("mask_relpath"):
         objects.append(meta_template["files"]["mask_relpath"])
+    if meta_template["files"].get("backfat_line_relpath"):
+        objects.append(meta_template["files"]["backfat_line_relpath"])
     objects.append("meta.json")
 
     payload = {
@@ -52,7 +59,7 @@ def test_webhook_hmac_ok():
             "captured_at": dt.replace(microsecond=0).isoformat() + "Z",
         },
         "etag": "abc123",
-        "size_bytes": len(img) + (len(mask) if mask else 0),
+        "size_bytes": len(img) + (len(mask) if mask else 0) + (len(backfat) if backfat else 0),
         "event_time": dt.replace(microsecond=0).isoformat() + "Z",
     }
     body = json.dumps(payload, separators=(",",":")).encode()

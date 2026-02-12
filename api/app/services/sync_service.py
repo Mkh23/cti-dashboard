@@ -59,7 +59,7 @@ def _delete_scan(db: Session, scan: Scan) -> None:
     """Delete scan plus related assets/events."""
     db.query(ScanEvent).filter(ScanEvent.scan_id == scan.id).delete()
 
-    asset_ids = [scan.image_asset_id, scan.mask_asset_id]
+    asset_ids = [scan.image_asset_id, scan.mask_asset_id, scan.backfat_line_asset_id]
     for asset_id in asset_ids:
         if asset_id:
             asset = db.get(Asset, asset_id)

@@ -122,6 +122,7 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [gradeSuccess, setGradeSuccess] = useState<string | null>(null);
   const [showMask, setShowMask] = useState(false);
+  const [showBackfatMask, setShowBackfatMask] = useState(false);
   const [attributesForm, setAttributesForm] = useState<AttributesFormState>({
     label: "",
     clarity: "",
@@ -567,16 +568,31 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         <section className="card space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Image preview</h2>
-            {scan.mask_url && (
-              <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={showMask}
-                  onChange={(event) => setShowMask(event.target.checked)}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
-                />
-                Highlight mask
-              </label>
+            {(scan.mask_url || scan.backfat_line_url) && (
+              <div className="flex flex-wrap items-center gap-3">
+                {scan.mask_url && (
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={showMask}
+                      onChange={(event) => setShowMask(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
+                    />
+                    Ribeye
+                  </label>
+                )}
+                {scan.backfat_line_url && (
+                  <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                    <input
+                      type="checkbox"
+                      checked={showBackfatMask}
+                      onChange={(event) => setShowBackfatMask(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
+                    />
+                    Backfat
+                  </label>
+                )}
+              </div>
             )}
           </div>
           <div className="relative overflow-hidden rounded-md border border-gray-800 bg-black">
@@ -593,7 +609,18 @@ export default function ScanDetailPage({ role }: { role: Role }) {
                 alt=""
                 className="pointer-events-none absolute inset-0 h-full w-full object-contain mix-blend-screen opacity-60"
                 style={{
-                  filter: "invert(1) sepia(1) saturate(8) hue-rotate(80deg)",
+                  filter: "sepia(1) saturate(8) hue-rotate(80deg)",
+                }}
+              />
+            )}
+            {showBackfatMask && scan.backfat_line_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={scan.backfat_line_url}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain mix-blend-screen opacity-60"
+                style={{
+                  filter: "sepia(1) saturate(8) hue-rotate(80deg)",
                 }}
               />
             )}

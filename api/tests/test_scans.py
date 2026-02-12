@@ -481,7 +481,7 @@ def test_scan_with_image_asset(test_db, test_device):
 
 
 def test_scan_with_mask_asset(test_db, test_device):
-    """Scan can be linked to mask asset."""
+    """Scan can be linked to mask and backfat line assets."""
     db = test_db()
     
     # Create assets
@@ -499,7 +499,14 @@ def test_scan_with_mask_asset(test_db, test_device):
         size_bytes=512,
         mime_type="image/png"
     )
-    db.add_all([image_asset, mask_asset])
+    backfat_asset = Asset(
+        bucket="test-bucket",
+        object_key="raw/SCAN-DEV-001/backfat_line.png",
+        sha256="backfat123",
+        size_bytes=256,
+        mime_type="image/png",
+    )
+    db.add_all([image_asset, mask_asset, backfat_asset])
     db.commit()
     
     # Create scan with both assets
@@ -509,6 +516,7 @@ def test_scan_with_mask_asset(test_db, test_device):
         device_id=test_device,
         image_asset_id=image_asset.id,
         mask_asset_id=mask_asset.id,
+        backfat_line_asset_id=backfat_asset.id,
         status=ScanStatus.uploaded
     )
     db.add(scan)
@@ -517,6 +525,7 @@ def test_scan_with_mask_asset(test_db, test_device):
     # Verify links
     assert scan.image_asset_id == image_asset.id
     assert scan.mask_asset_id == mask_asset.id
+    assert scan.backfat_line_asset_id == backfat_asset.id
     db.close()
 
 

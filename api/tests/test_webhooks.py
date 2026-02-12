@@ -203,8 +203,13 @@ def test_webhook_invalid_meta_schema(client, test_device):
         "objects": ["image.jpg", "meta.json"],
         "meta_json": {
             "meta_version": "1.0.0",
-            # Missing required fields
-            "device_code": test_device.device_code
+            "device_code": test_device.device_code,
+            "capture_id": "cap_bad_id",
+            "captured_at": "2025-01-01T00:00:00Z",
+            "image_sha256": "0" * 64,
+            "files": {"image_relpath": "image.jpg"},
+            "probe": {"model": "unknown"},
+            "firmware": {"app_version": "0.0.0"},
         }
     }
     
@@ -322,20 +327,23 @@ def load_sample_payload():
     payload = json.loads(fixture.read_text())
     img = base64.b64decode(payload["image_png_base64"])
     mask = base64.b64decode(payload["mask_png_base64"])
+    backfat_line = base64.b64decode(
+        payload.get("backfat_line_png_base64", payload["mask_png_base64"])
+    )
     defaults = payload["meta_defaults"]
-    return img, mask, defaults
+    return img, mask, backfat_line, defaults
 
 
 def test_webhook_ingests_full_payload_with_mask_and_metrics(client, test_device, test_db):
     """Webhook accepts the canonical sample with real image/mask hashes and persists mask asset + metrics."""
-    img, mask, defaults = load_sample_payload()
-    capture_id = "cap_full_payload"
+    img, mask, backfat_line, defaults = load_sample_payload()
+    capture_id = "cap_777001"
     timestamp = str(int(datetime.utcnow().timestamp()))
     payload = {
         "bucket": "test-bucket",
         "ingest_key": f"raw/{test_device.device_code}/2025/12/01/{capture_id}/",
         "device_code": test_device.device_code,
-        "objects": ["image.png", "mask.png", "meta.json"],
+        "objects": ["image.png", "mask.png", "backfat_line.png", "meta.json"],
         "meta_json": {
             "meta_version": "1.0.0",
             "device_code": test_device.device_code,
@@ -343,10 +351,11 @@ def test_webhook_ingests_full_payload_with_mask_and_metrics(client, test_device,
             "captured_at": "2025-12-01T15:04:05Z",
             "image_sha256": hashlib.sha256(img).hexdigest(),
             "mask_sha256": hashlib.sha256(mask).hexdigest(),
+            "backfat_line_sha256": hashlib.sha256(backfat_line).hexdigest(),
             **defaults,
         },
         "etag": "abc123",
-        "size_bytes": len(img) + len(mask),
+        "size_bytes": len(img) + len(mask) + len(backfat_line),
         "event_time": "2025-12-01T15:04:10Z",
     }
     body = json.dumps(payload)
@@ -363,11 +372,15 @@ def test_webhook_ingests_full_payload_with_mask_and_metrics(client, test_device,
     try:
         scan = db.query(Scan).filter(Scan.capture_id == capture_id).one()
         assert scan.mask_asset_id is not None
+        assert scan.backfat_line_asset_id is not None
         assert scan.meta["files"]["mask_relpath"] == "mask.png"
+        assert scan.meta["files"]["backfat_line_relpath"] == "backfat_line.png"
         assert scan.imf is not None
         assert float(scan.backfat_thickness) == pytest.approx(0.85)
         assert scan.clarity.value == "good"
         mask_asset = db.query(Asset).filter(Asset.id == scan.mask_asset_id).one()
         assert mask_asset.sha256 == hashlib.sha256(mask).hexdigest()
+        backfat_asset = db.query(Asset).filter(Asset.id == scan.backfat_line_asset_id).one()
+        assert backfat_asset.sha256 == hashlib.sha256(backfat_line).hexdigest()
     finally:
         db.close()

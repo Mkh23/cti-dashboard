@@ -142,6 +142,11 @@
       "pattern": "^[a-f0-9]{64}$",
       "description": "Optional SHA256 hash of the mask file"
     },
+    "backfat_line_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Optional SHA256 hash of the backfat line mask file"
+    },
     "files": {
       "type": "object",
       "required": ["image_relpath"],
@@ -153,6 +158,10 @@
         "mask_relpath": {
           "type": ["string", "null"],
           "description": "Optional relative path to mask file"
+        },
+        "backfat_line_relpath": {
+          "type": ["string", "null"],
+          "description": "Optional relative path to backfat line mask file"
         },
         "extra": {
           "type": "array",

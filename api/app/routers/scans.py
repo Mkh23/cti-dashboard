@@ -83,6 +83,7 @@ class ScanOut(ScanApiModel):
     status: ScanStatus
     image_asset_id: Optional[UUID]
     mask_asset_id: Optional[UUID]
+    backfat_line_asset_id: Optional[UUID]
     created_at: datetime
     latest_grading: Optional[LatestGradingOut] = None
     group_id: Optional[UUID]
@@ -106,6 +107,9 @@ class ScanDetailOut(ScanOut):
     mask_bucket: Optional[str] = None
     mask_key: Optional[str] = None
     mask_url: Optional[str] = None
+    backfat_line_bucket: Optional[str] = None
+    backfat_line_key: Optional[str] = None
+    backfat_line_url: Optional[str] = None
     grading_results: List[GradingResultOut] = Field(default_factory=list)
 
 
@@ -298,6 +302,7 @@ def serialize_scan_summary(scan: Scan) -> ScanOut:
         status=scan.status,
         image_asset_id=scan.image_asset_id,
         mask_asset_id=scan.mask_asset_id,
+        backfat_line_asset_id=scan.backfat_line_asset_id,
         created_at=scan.created_at,
         latest_grading=latest,
         group_id=scan.group_id,
@@ -339,6 +344,14 @@ def serialize_scan_detail(scan: Scan) -> ScanDetailOut:
         )
         if scan.mask_asset
         else None,
+        backfat_line_bucket=scan.backfat_line_asset.bucket if scan.backfat_line_asset else None,
+        backfat_line_key=scan.backfat_line_asset.object_key if scan.backfat_line_asset else None,
+        backfat_line_url=generate_presigned_url(
+            scan.backfat_line_asset.bucket,
+            scan.backfat_line_asset.object_key,
+        )
+        if scan.backfat_line_asset
+        else None,
         grading_results=grading_results,
     )
 
@@ -351,6 +364,7 @@ def load_scan_with_related(db: Session, scan_id: UUID) -> Scan:
             selectinload(Scan.farm),
             selectinload(Scan.image_asset),
             selectinload(Scan.mask_asset),
+            selectinload(Scan.backfat_line_asset),
             selectinload(Scan.grading_results).selectinload(GradingResult.creator),
             selectinload(Scan.group),
         )
@@ -636,7 +650,7 @@ def delete_scan(
     db.query(GradingResult).filter(GradingResult.scan_id == scan.id).delete(synchronize_session=False)
 
     # Attempt to delete the entire capture folder (image/mask/meta) before removing asset rows
-    prefix_source = scan.image_asset or scan.mask_asset
+    prefix_source = scan.image_asset or scan.mask_asset or scan.backfat_line_asset
     if prefix_source and prefix_source.bucket and prefix_source.object_key:
         folder_prefix = prefix_source.object_key.rsplit("/", 1)[0]
         try:
@@ -663,6 +677,26 @@ def delete_scan(
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("Error deleting mask object %s/%s: %s", scan.mask_asset.bucket, scan.mask_asset.object_key, exc)
         db.delete(scan.mask_asset)
+    if scan.backfat_line_asset:
+        try:
+            deleted = delete_object(
+                scan.backfat_line_asset.bucket,
+                scan.backfat_line_asset.object_key,
+            )
+            if not deleted:
+                logger.warning(
+                    "Could not delete backfat line mask object %s/%s",
+                    scan.backfat_line_asset.bucket,
+                    scan.backfat_line_asset.object_key,
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Error deleting backfat line mask object %s/%s: %s",
+                scan.backfat_line_asset.bucket,
+                scan.backfat_line_asset.object_key,
+                exc,
+            )
+        db.delete(scan.backfat_line_asset)
 
     db.delete(scan)
     db.commit()

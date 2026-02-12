@@ -1,7 +1,7 @@
 """Tests for S3 utility functions."""
 import pytest
 from unittest.mock import patch, MagicMock
-from app.s3_utils import generate_presigned_url, get_s3_client
+from app.s3_utils import delete_object, delete_prefix_objects, generate_presigned_url, get_s3_client
 
 
 def test_generate_presigned_url_success():
@@ -82,3 +82,56 @@ def test_get_s3_client_without_profile():
                 
                 mock_client.assert_called_once_with('s3', region_name='ca-central-1')
                 assert client == mock_s3
+
+
+def test_delete_object_success():
+    """Delete object returns True on success."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        mock_s3 = MagicMock()
+        mock_client.return_value = mock_s3
+        assert delete_object("bucket", "key") is True
+        mock_s3.delete_object.assert_called_once_with(Bucket="bucket", Key="key")
+
+
+def test_delete_object_client_error():
+    """Delete object returns False on client errors."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        from botocore.exceptions import ClientError
+        mock_s3 = MagicMock()
+        mock_s3.delete_object.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied"}}, "delete_object"
+        )
+        mock_client.return_value = mock_s3
+        assert delete_object("bucket", "key") is False
+
+
+def test_delete_prefix_objects_success():
+    """Delete prefix objects removes listed items."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        mock_s3 = MagicMock()
+        mock_s3.list_objects_v2.return_value = {
+            "Contents": [{"Key": "prefix/a.txt"}, {"Key": "prefix/b.txt"}],
+            "IsTruncated": False,
+        }
+        mock_client.return_value = mock_s3
+
+        deleted = delete_prefix_objects("bucket", "prefix")
+
+        assert deleted == 2
+        mock_s3.list_objects_v2.assert_called_once_with(Bucket="bucket", Prefix="prefix/")
+        mock_s3.delete_objects.assert_called_once()
+
+
+def test_delete_prefix_objects_client_error():
+    """Delete prefix objects returns None on client errors."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        from botocore.exceptions import ClientError
+        mock_s3 = MagicMock()
+        mock_s3.list_objects_v2.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied"}}, "list_objects_v2"
+        )
+        mock_client.return_value = mock_s3
+
+        deleted = delete_prefix_objects("bucket", "prefix")
+
+        assert deleted is None

@@ -207,6 +207,7 @@ class Scan(Base):
     status: Mapped[ScanStatus] = mapped_column(SQLEnum(ScanStatus), default=ScanStatus.uploaded)
     image_asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
     mask_asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
+    backfat_line_asset_id = Column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     grading = Column(Text, nullable=True)
     meta = Column(JSONB, nullable=True)
@@ -232,6 +233,7 @@ class Scan(Base):
     operator = relationship("User")
     image_asset = relationship("Asset", foreign_keys=[image_asset_id])
     mask_asset = relationship("Asset", foreign_keys=[mask_asset_id])
+    backfat_line_asset = relationship("Asset", foreign_keys=[backfat_line_asset_id])
     grading_results = relationship(
         "GradingResult",
         back_populates="scan",

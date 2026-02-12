@@ -101,6 +101,25 @@ CORS_ORIGINS=http://localhost:3000
 NEXT_PUBLIC_API_BASE=http://localhost:8000
 ```
 
+### Migration helper
+
+Run Alembic migrations without starting the dev stack:
+
+```bash
+./scripts/migrate.sh
+```
+
+Server convenience wrapper:
+
+```bash
+./scripts/server-migrate.sh
+```
+
+The script reads `api/.env` if present; otherwise it falls back to
+`postgresql+psycopg2://postgres:postgres@localhost:5432/cti`. To migrate a
+remote/server database, set `DATABASE_URL` (or update `api/.env`) before running
+the script.
+
 ### Production helper
 
 When you're ready to dry-run a production-style launch on something like `10.10.10.104`, run the prod orchestrator. It builds the Next.js app, applies Alembic migrations, and serves API/Web on `0.0.0.0:${API_PORT}` / `0.0.0.0:${WEB_PORT}` (override via env vars).
@@ -133,7 +152,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Group updates now propagate farm + birth date to animals/scans; animal/groups forms toggle between register/edit states based on context
 - Fixed Animals form toggle (show/hide) so it initializes correctly when editing
 - Added Geofence builder stub page per farm; store your province .gpkg/.geojson files outside git (e.g., `resources/geofence/`) and wire a backend endpoint to feed the map
-- Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes a mask overlay toggle that highlights the segmentation in green
+- Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes mask + backfat mask overlay toggles that highlight segmentation in green
 - Scan timestamps now render in each farm's local timezone (defaulting to America/Edmonton when no centroid is set) so captured-at times from `meta.json` match the ranch clock
 - Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
@@ -151,13 +170,13 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Scan detail editor now enforces clarity/usability dropdowns with type-safe enums and payload normalization so updates can't submit invalid values or fail builds
 - Scan detail view now surfaces the device-reported grading string from `meta.json` (e.g., "AAA") alongside latest grading runs
 - Scan detail page now supports deleting scans and editing farm/group assignment, with list timestamps shown as “Added” in the user’s local time
-- Scan deletion now also removes associated S3 image/mask objects to keep storage tidy
+- Scan deletion now also removes associated S3 image/mask/backfat mask objects to keep storage tidy
 - Next.js build config now hard-wires the `@` alias so server builds resolve shared libs the same way as local dev
 - Backend scan API schemas now explicitly allow `model_name` / `model_version` fields via a shared Pydantic config so dev/prod logs stay noise-free
 - Shared group manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 - User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app
-- Scan listing supports label filters/badges, and scan detail pages now include a mask overlay toggle plus editable clarity/usability/label annotations
+- Scan listing supports label filters/badges, and scan detail pages now include mask + backfat mask overlay toggles plus editable clarity/usability/label annotations
 - Global dashboard navigation now adapts per role (admins only see admin tools; technicians/farmers only see their panels) while still offering Home/Scans shortcuts, sign-out, and branded routing, and the landing page keeps announcements and CTAs front-and-center for quick orientation
 - Login view offers inline shortcuts back to the marketing home or the public registration form so users can recover from mistyped URLs quickly
 

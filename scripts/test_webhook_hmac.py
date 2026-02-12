@@ -22,15 +22,27 @@ def load_sample_assets():
     image_path = SAMPLE_DIR / meta["files"]["image_relpath"]
     mask_rel = meta["files"].get("mask_relpath")
     mask_path = SAMPLE_DIR / mask_rel if mask_rel else None
+    backfat_rel = meta["files"].get("backfat_line_relpath")
+    backfat_path = SAMPLE_DIR / backfat_rel if backfat_rel else None
     img = image_path.read_bytes()
     mask = mask_path.read_bytes() if mask_path and mask_path.exists() else None
+    backfat = backfat_path.read_bytes() if backfat_path and backfat_path.exists() else None
     meta["image_sha256"] = hashlib.sha256(img).hexdigest()
     if mask:
         meta["mask_sha256"] = hashlib.sha256(mask).hexdigest()
-    return img, mask, meta
+    if backfat:
+        meta["backfat_line_sha256"] = hashlib.sha256(backfat).hexdigest()
+    return img, mask, backfat, meta
 
 
-def maybe_upload_to_s3(bucket: str, ingest_key: str, img: bytes, mask: Optional[bytes], meta: dict):
+def maybe_upload_to_s3(
+    bucket: str,
+    ingest_key: str,
+    img: bytes,
+    mask: Optional[bytes],
+    backfat: Optional[bytes],
+    meta: dict,
+):
     if not os.environ.get("UPLOAD_TO_S3"):
         return
 
@@ -53,6 +65,13 @@ def maybe_upload_to_s3(bucket: str, ingest_key: str, img: bytes, mask: Optional[
             Body=mask,
             ContentType="image/png",
         )
+    if backfat and meta["files"].get("backfat_line_relpath"):
+        s3.put_object(
+            Bucket=bucket,
+            Key=ingest_key + meta["files"]["backfat_line_relpath"],
+            Body=backfat,
+            ContentType="image/png",
+        )
     s3.put_object(
         Bucket=bucket,
         Key=f"{ingest_key}meta.json",
@@ -62,13 +81,15 @@ def maybe_upload_to_s3(bucket: str, ingest_key: str, img: bytes, mask: Optional[
     file_list = [meta["files"]["image_relpath"]]
     if meta["files"].get("mask_relpath"):
         file_list.append(meta["files"]["mask_relpath"])
+    if meta["files"].get("backfat_line_relpath"):
+        file_list.append(meta["files"]["backfat_line_relpath"])
     print(f"Uploaded sample assets to s3://{bucket}/{ingest_key}({', '.join(file_list)}, meta.json)")
 
 
 def main():
     device_code = os.environ.get("CTI_DEVICE_CODE", "dev-local")
     bucket = os.environ.get("CTI_BUCKET", "cti-dev-406214277746")
-    img, mask, sample_meta = load_sample_assets()
+    img, mask, backfat, sample_meta = load_sample_assets()
     epoch = int(time.time())
     cap_id = f"cap_{epoch}"
     dt = datetime.utcfromtimestamp(epoch)
@@ -84,6 +105,8 @@ def main():
     objects = [meta["files"]["image_relpath"]]
     if meta["files"].get("mask_relpath"):
         objects.append(meta["files"]["mask_relpath"])
+    if meta["files"].get("backfat_line_relpath"):
+        objects.append(meta["files"]["backfat_line_relpath"])
     objects.append("meta.json")
 
     payload = {
@@ -94,11 +117,11 @@ def main():
         "objects": objects,
         "meta_json": meta,
         "etag": "abc123",
-        "size_bytes": len(img) + (len(mask) if mask else 0),
+        "size_bytes": len(img) + (len(mask) if mask else 0) + (len(backfat) if backfat else 0),
         "event_time": dt.replace(microsecond=0).isoformat() + "Z",
     }
 
-    maybe_upload_to_s3(bucket, ingest_key, img, mask, meta)
+    maybe_upload_to_s3(bucket, ingest_key, img, mask, backfat, meta)
 
     body = json.dumps(payload, separators=(",", ":")).encode()
     ts = str(int(time.time()))

@@ -41,6 +41,14 @@ def generate_presigned_url(
             "Failed to generate presigned URL for %s/%s: %s", bucket, key, exc
         )
         return None
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Unexpected error generating presigned URL for %s/%s: %s",
+            bucket,
+            key,
+            exc,
+        )
+        return None
 
 
 def delete_object(bucket: str, key: str) -> bool:

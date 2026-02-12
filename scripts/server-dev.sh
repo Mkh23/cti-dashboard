@@ -29,7 +29,13 @@ source "$API_DIR/.venv/bin/activate"
 pip install --upgrade pip >/dev/null
 pip install -r "$API_DIR/requirements.txt"
 
-# Alembic
+# Alembic (load env so migrations hit the same DB as the API)
+DATABASE_URL_DEFAULT="postgresql+psycopg2://postgres:postgres@localhost:5432/cti"
+if [ -f "$API_DIR/.env" ]; then
+  export $(grep -E '^[A-Z_]+=' "$API_DIR/.env" | xargs)
+fi
+export DATABASE_URL="${DATABASE_URL:-$DATABASE_URL_DEFAULT}"
+
 pushd "$API_DIR" >/dev/null
 alembic upgrade head
 popd >/dev/null

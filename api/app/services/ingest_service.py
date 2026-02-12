@@ -57,6 +57,7 @@ def _apply_meta_defaults(meta_json: Dict) -> Dict:
     files = dict(files)
     files.setdefault("image_relpath", "image.jpg")
     files.setdefault("mask_relpath", None)
+    files.setdefault("backfat_line_relpath", None)
     data["files"] = files
 
     # Required objects with minimal defaults
@@ -286,8 +287,10 @@ def ingest_scan_from_payload(
 
     image_asset = None
     mask_asset = None
+    backfat_line_asset = None
     image_relpath = meta_json["files"]["image_relpath"]
     mask_relpath = meta_json["files"].get("mask_relpath")
+    backfat_line_relpath = meta_json["files"].get("backfat_line_relpath")
 
     for obj in objects:
         if obj == image_relpath:
@@ -306,6 +309,14 @@ def ingest_scan_from_payload(
                 mime_type="image/png",
             )
             db.add(mask_asset)
+        elif backfat_line_relpath and obj == backfat_line_relpath:
+            backfat_line_asset = Asset(
+                bucket=bucket,
+                object_key=f"{ingest_key}{obj}",
+                sha256=meta_json.get("backfat_line_sha256", ""),
+                mime_type="image/png",
+            )
+            db.add(backfat_line_asset)
 
     db.flush()
 
@@ -339,6 +350,7 @@ def ingest_scan_from_payload(
         status=ScanStatus.ingested,
         image_asset_id=image_asset.id if image_asset else None,
         mask_asset_id=mask_asset.id if mask_asset else None,
+        backfat_line_asset_id=backfat_line_asset.id if backfat_line_asset else None,
         gps=gps_point,
         farm_id=farm_id,
         grading=grading,

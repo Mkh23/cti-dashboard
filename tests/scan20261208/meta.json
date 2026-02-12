@@ -5,9 +5,11 @@
   "captured_at": "2025-11-13T09:01:23Z",
   "image_sha256": "13abab351b81439ff7a3b30cd1c87a7ff73260d5d0f969c6254d0228de0f43b6",
   "mask_sha256": "4e34d90b61123915a83d2820a6620ea32a8fec1e8a5e227ee207ce54ae19b70b",
+  "backfat_line_sha256": "4e34d90b61123915a83d2820a6620ea32a8fec1e8a5e227ee207ce54ae19b70b",
   "files": {
     "image_relpath": "image.jpg",
     "mask_relpath": "mask.png",
+    "backfat_line_relpath": "backfat_line.png",
     "extra": [
       "meta.json"
     ]

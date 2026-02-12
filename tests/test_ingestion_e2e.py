@@ -19,12 +19,17 @@ def load_sample_assets():
     image_path = SAMPLE_DIR / meta["files"]["image_relpath"]
     mask_rel = meta["files"].get("mask_relpath")
     mask_path = SAMPLE_DIR / mask_rel if mask_rel else None
+    backfat_rel = meta["files"].get("backfat_line_relpath")
+    backfat_path = SAMPLE_DIR / backfat_rel if backfat_rel else None
     img = image_path.read_bytes()
     msk = mask_path.read_bytes() if mask_path and mask_path.exists() else None
+    backfat = backfat_path.read_bytes() if backfat_path and backfat_path.exists() else None
     meta["image_sha256"] = hashlib.sha256(img).hexdigest()
     if msk:
         meta["mask_sha256"] = hashlib.sha256(msk).hexdigest()
-    return img, msk, meta
+    if backfat:
+        meta["backfat_line_sha256"] = hashlib.sha256(backfat).hexdigest()
+    return img, msk, backfat, meta
 
 
 @pytest.mark.skipif(not BUCKET, reason="CTI_BUCKET not set; skipping e2e")
@@ -37,7 +42,7 @@ def test_s3_to_lambda_to_api():
     dt = datetime.datetime.utcfromtimestamp(epoch)
     prefix = f"raw/{device}/{dt:%Y/%m/%d}/{cap_id}/"
 
-    img, msk, sample_meta = load_sample_assets()
+    img, msk, backfat, sample_meta = load_sample_assets()
     meta = {
         **sample_meta,
         "device_code": device,
@@ -50,6 +55,9 @@ def test_s3_to_lambda_to_api():
     if msk and meta["files"].get("mask_relpath"):
         mask_key = prefix + meta["files"]["mask_relpath"]
         s3.put_object(Bucket=BUCKET, Key=mask_key,  Body=msk, ContentType="image/png")
+    if backfat and meta["files"].get("backfat_line_relpath"):
+        backfat_key = prefix + meta["files"]["backfat_line_relpath"]
+        s3.put_object(Bucket=BUCKET, Key=backfat_key, Body=backfat, ContentType="image/png")
     s3.put_object(Bucket=BUCKET, Key=prefix+"meta.json", Body=json.dumps(meta, separators=(",", ":")).encode(), ContentType="application/json")
 
     # Minimal assertion: upload succeeded; Lambda→API verified by CloudWatch logs

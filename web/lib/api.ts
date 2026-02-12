@@ -236,6 +236,7 @@ export type Scan = {
   status: ScanStatus;
   image_asset_id?: string | null;
   mask_asset_id?: string | null;
+  backfat_line_asset_id?: string | null;
   created_at: string;
   latest_grading?: LatestGrading | null;
   group_id?: string | null;
@@ -259,6 +260,9 @@ export type ScanDetail = Scan & {
   mask_bucket?: string | null;
   mask_key?: string | null;
   mask_url?: string | null;
+  backfat_line_bucket?: string | null;
+  backfat_line_key?: string | null;
+  backfat_line_url?: string | null;
   grading_results: GradingResult[];
 };
 
