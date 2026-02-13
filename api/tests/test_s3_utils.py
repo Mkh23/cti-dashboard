@@ -1,7 +1,13 @@
 """Tests for S3 utility functions."""
 import pytest
 from unittest.mock import patch, MagicMock
-from app.s3_utils import delete_object, delete_prefix_objects, generate_presigned_url, get_s3_client
+from app.s3_utils import (
+    delete_object,
+    delete_prefix_objects,
+    generate_presigned_url,
+    get_s3_client,
+    put_object,
+)
 
 
 def test_generate_presigned_url_success():
@@ -135,3 +141,31 @@ def test_delete_prefix_objects_client_error():
         deleted = delete_prefix_objects("bucket", "prefix")
 
         assert deleted is None
+
+
+def test_put_object_success():
+    """Put object returns True on success."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        mock_s3 = MagicMock()
+        mock_client.return_value = mock_s3
+        ok = put_object("bucket", "key", b"data", content_type="image/png")
+        assert ok is True
+        mock_s3.put_object.assert_called_once_with(
+            Bucket="bucket",
+            Key="key",
+            Body=b"data",
+            ContentType="image/png",
+        )
+
+
+def test_put_object_client_error():
+    """Put object returns False on client errors."""
+    with patch('app.s3_utils.get_s3_client') as mock_client:
+        from botocore.exceptions import ClientError
+        mock_s3 = MagicMock()
+        mock_s3.put_object.side_effect = ClientError(
+            {"Error": {"Code": "AccessDenied"}}, "put_object"
+        )
+        mock_client.return_value = mock_s3
+        ok = put_object("bucket", "key", b"data")
+        assert ok is False

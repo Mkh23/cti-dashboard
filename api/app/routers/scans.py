@@ -3,16 +3,19 @@ Scans API endpoints for viewing and managing scans.
 Implements listing, detail views, and scan actions with role-based access control.
 """
 import logging
+import hashlib
 from decimal import Decimal, ROUND_HALF_UP
 from random import uniform
 from typing import Dict, List, Optional, Set, Literal
 from uuid import UUID
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import asc, desc, func, or_
 from sqlalchemy.orm import Session, selectinload
+from botocore.exceptions import ClientError
 
 from ..db import get_db
 from ..models import (
@@ -31,7 +34,13 @@ from ..models import (
     UserRole,
 )
 from .me import get_current_user
-from ..s3_utils import generate_presigned_url, delete_object, delete_prefix_objects
+from ..s3_utils import (
+    generate_presigned_url,
+    delete_object,
+    delete_prefix_objects,
+    get_s3_client,
+    put_object,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +146,7 @@ class GradeScanPayload(ScanApiModel):
 
 
 QualityLiteral = Literal["good", "medium", "bad"]
+MaskType = Literal["ribeye", "backfat"]
 
 
 class ScanAttributesUpdate(ScanApiModel):
@@ -354,6 +364,28 @@ def serialize_scan_detail(scan: Scan) -> ScanDetailOut:
         else None,
         grading_results=grading_results,
     )
+
+
+def _get_mask_target(scan: Scan, mask_type: MaskType):
+    if mask_type == "ribeye":
+        asset = scan.mask_asset
+        filename = "mask.png"
+    else:
+        asset = scan.backfat_line_asset
+        filename = "backfat_line.png"
+
+    base_asset = asset or scan.image_asset or scan.mask_asset or scan.backfat_line_asset
+    if not base_asset or not base_asset.bucket or not base_asset.object_key:
+        raise HTTPException(status_code=400, detail="Missing base asset to determine mask destination")
+
+    bucket = base_asset.bucket
+    if asset and asset.object_key:
+        key = asset.object_key
+    else:
+        prefix = base_asset.object_key.rsplit("/", 1)[0]
+        key = f"{prefix}/{filename}"
+
+    return asset, bucket, key, filename
 
 
 def load_scan_with_related(db: Session, scan_id: UUID) -> Scan:
@@ -630,6 +662,98 @@ def update_scan_assignment(
     db.commit()
     updated_scan = load_scan_with_related(db, scan.id)
     return serialize_scan_detail(updated_scan)
+
+
+@router.post("/{scan_id}/mask", response_model=ScanDetailOut)
+def update_scan_mask(
+    scan_id: UUID,
+    mask_type: MaskType = Query(..., description="Mask type (ribeye or backfat)"),
+    file: UploadFile = File(...),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Replace a scan mask (ribeye/backfat) and persist it to S3."""
+    role_names = get_user_roles(current, db)
+    if not {"admin", "technician"} & role_names:
+        raise HTTPException(status_code=403, detail="Only admins or technicians can edit masks")
+
+    scan = load_scan_with_related(db, scan_id)
+    ensure_scan_access(scan, db, current, role_names)
+
+    content = file.file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Mask upload is empty")
+
+    asset, bucket, key, filename = _get_mask_target(scan, mask_type)
+
+    if not put_object(bucket, key, content, content_type="image/png"):
+        raise HTTPException(status_code=502, detail="Failed to upload mask to S3")
+
+    sha256 = hashlib.sha256(content).hexdigest()
+    size_bytes = len(content)
+
+    if asset:
+        asset.bucket = bucket
+        asset.object_key = key
+        asset.sha256 = sha256
+        asset.size_bytes = size_bytes
+        asset.mime_type = "image/png"
+    else:
+        asset = Asset(
+            bucket=bucket,
+            object_key=key,
+            sha256=sha256,
+            size_bytes=size_bytes,
+            mime_type="image/png",
+        )
+        db.add(asset)
+        db.flush()
+        if mask_type == "ribeye":
+            scan.mask_asset_id = asset.id
+        else:
+            scan.backfat_line_asset_id = asset.id
+
+    meta = scan.meta if isinstance(scan.meta, dict) else {}
+    files = meta.get("files") if isinstance(meta.get("files"), dict) else {}
+    if mask_type == "ribeye":
+        files["mask_relpath"] = filename
+        meta["mask_sha256"] = sha256
+    else:
+        files["backfat_line_relpath"] = filename
+        meta["backfat_line_sha256"] = sha256
+    meta["files"] = files
+    scan.meta = meta
+
+    db.commit()
+    updated_scan = load_scan_with_related(db, scan.id)
+    return serialize_scan_detail(updated_scan)
+
+
+@router.get("/{scan_id}/mask")
+def get_scan_mask(
+    scan_id: UUID,
+    mask_type: MaskType = Query(..., description="Mask type (ribeye or backfat)"),
+    current: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream an existing scan mask from S3 for in-app editing."""
+    role_names = get_user_roles(current, db)
+    scan = load_scan_with_related(db, scan_id)
+    ensure_scan_access(scan, db, current, role_names)
+
+    asset = scan.mask_asset if mask_type == "ribeye" else scan.backfat_line_asset
+    if not asset or not asset.bucket or not asset.object_key:
+        raise HTTPException(status_code=404, detail="Mask not found")
+
+    s3 = get_s3_client()
+    try:
+        obj = s3.get_object(Bucket=asset.bucket, Key=asset.object_key)
+    except ClientError:
+        raise HTTPException(status_code=404, detail="Mask not found")
+
+    body = obj["Body"]
+    content_type = obj.get("ContentType") or "image/png"
+    return StreamingResponse(body, media_type=content_type)
 
 
 @router.delete("/{scan_id}")

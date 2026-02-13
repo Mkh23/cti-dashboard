@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   gradeScan,
   getScan,
+  getScanMask,
   listFarms,
   listGroups,
   me,
   updateScanAttributes,
   updateScanAssignment,
+  updateScanMask,
   deleteScan,
   type GradeScanPayload,
   type Group,
@@ -19,6 +21,7 @@ import {
   type Profile,
   type ScanDetail,
   type ScanQuality,
+  type MaskType,
   type UpdateScanAttributesPayload,
 } from "@/lib/api";
 import { buildFarmTimeZoneMap, DEFAULT_FARM_TIME_ZONE, formatDateTime } from "@/lib/datetime";
@@ -123,6 +126,17 @@ export default function ScanDetailPage({ role }: { role: Role }) {
   const [gradeSuccess, setGradeSuccess] = useState<string | null>(null);
   const [showMask, setShowMask] = useState(false);
   const [showBackfatMask, setShowBackfatMask] = useState(false);
+  const [editingMask, setEditingMask] = useState<MaskType | null>(null);
+  const [brushSize, setBrushSize] = useState(24);
+  const [brushMode, setBrushMode] = useState<"add" | "erase">("add");
+  const [maskSaving, setMaskSaving] = useState(false);
+  const [maskError, setMaskError] = useState<string | null>(null);
+  const [maskSuccess, setMaskSuccess] = useState<string | null>(null);
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const [attributesForm, setAttributesForm] = useState<AttributesFormState>({
     label: "",
     clarity: "",
@@ -176,6 +190,8 @@ export default function ScanDetailPage({ role }: { role: Role }) {
         group_id: data.group_id ?? "",
       });
       setShowMask(false);
+      setShowBackfatMask(false);
+      setEditingMask(null);
     },
     []
   );
@@ -323,6 +339,163 @@ export default function ScanDetailPage({ role }: { role: Role }) {
       setDeleteLoading(false);
     }
   };
+
+  const handleImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+  }, []);
+
+  const getCanvasPoint = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!imageSize) return null;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return null;
+      return {
+        x: (x / rect.width) * imageSize.width,
+        y: (y / rect.height) * imageSize.height,
+      };
+    },
+    [imageSize]
+  );
+
+  const drawStroke = useCallback(
+    (from: { x: number; y: number }, to: { x: number; y: number }) => {
+      const canvas = maskCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = brushSize;
+      ctx.strokeStyle = "white";
+      ctx.globalCompositeOperation =
+        brushMode === "add" ? "source-over" : "destination-out";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    },
+    [brushMode, brushSize]
+  );
+
+  const handleMaskPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!editingMask) return;
+      event.preventDefault();
+      const point = getCanvasPoint(event);
+      if (!point) return;
+      drawingRef.current = true;
+      lastPointRef.current = point;
+      drawStroke(point, point);
+    },
+    [drawStroke, editingMask, getCanvasPoint]
+  );
+
+  const handleMaskPointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!drawingRef.current || !editingMask) return;
+      event.preventDefault();
+      const point = getCanvasPoint(event);
+      if (!point || !lastPointRef.current) return;
+      drawStroke(lastPointRef.current, point);
+      lastPointRef.current = point;
+    },
+    [drawStroke, editingMask, getCanvasPoint]
+  );
+
+  const handleMaskPointerUp = useCallback(() => {
+    drawingRef.current = false;
+    lastPointRef.current = null;
+  }, []);
+
+  const exportMaskBlob = useCallback(async () => {
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return null;
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = canvas.width;
+    outCanvas.height = canvas.height;
+    const ctx = outCanvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+    ctx.drawImage(canvas, 0, 0);
+    return await new Promise<Blob | null>((resolve) =>
+      outCanvas.toBlob((blob) => resolve(blob), "image/png")
+    );
+  }, []);
+
+  const handleMaskSave = useCallback(async () => {
+    if (!scan || !editingMask) return;
+    setMaskSaving(true);
+    setMaskError(null);
+    setMaskSuccess(null);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) throw new Error("Not logged in");
+      const blob = await exportMaskBlob();
+      if (!blob) throw new Error("Unable to export mask");
+      await updateScanMask(token, scan.id, editingMask, blob);
+      await refreshScan(token, scan.id);
+      setMaskSuccess("Mask saved.");
+      setEditingMask(null);
+    } catch (err: any) {
+      setMaskError(err?.message || "Failed to save mask");
+    } finally {
+      setMaskSaving(false);
+    }
+  }, [editingMask, exportMaskBlob, refreshScan, scan]);
+
+  const handleMaskCancel = useCallback(() => {
+    setEditingMask(null);
+    setMaskError(null);
+    setMaskSuccess(null);
+  }, []);
+
+  useEffect(() => {
+    if (!editingMask || !imageSize || !scan) return;
+    const canvas = maskCanvasRef.current;
+    if (!canvas) return;
+    canvas.width = imageSize.width;
+    canvas.height = imageSize.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let cancelled = false;
+    const loadMask = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const blob = await getScanMask(token, scan.id, editingMask);
+        if (!blob || cancelled) return;
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+        };
+        img.src = url;
+      } catch {
+        // best-effort: leave blank canvas if the mask can't be loaded
+      }
+    };
+
+    loadMask();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editingMask, imageSize, scan?.id]);
 
   if (loading) {
     return (
@@ -566,64 +739,166 @@ export default function ScanDetailPage({ role }: { role: Role }) {
 
       {scan.image_url && (
         <section className="card space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-white">Image preview</h2>
-            {(scan.mask_url || scan.backfat_line_url) && (
-              <div className="flex flex-wrap items-center gap-3">
-                {scan.mask_url && (
-                  <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
-                    <input
-                      type="checkbox"
-                      checked={showMask}
-                      onChange={(event) => setShowMask(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
-                    />
-                    Ribeye
-                  </label>
-                )}
-                {scan.backfat_line_url && (
-                  <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
-                    <input
-                      type="checkbox"
-                      checked={showBackfatMask}
-                      onChange={(event) => setShowBackfatMask(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
-                    />
-                    Backfat
-                  </label>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={showMask}
+                    onChange={(event) => setShowMask(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
+                  />
+                  Ribeye
+                </label>
+                {gradeAllowed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMask("ribeye");
+                      setMaskError(null);
+                      setMaskSuccess(null);
+                    }}
+                    className="rounded-md border border-gray-700 px-2 py-1 text-xs font-semibold uppercase text-gray-300 hover:border-gray-500"
+                  >
+                    {editingMask === "ribeye" ? "Editing" : "Edit"}
+                  </button>
                 )}
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={showBackfatMask}
+                    onChange={(event) => setShowBackfatMask(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-emerald-500 focus:ring-emerald-400"
+                  />
+                  Backfat
+                </label>
+                {gradeAllowed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMask("backfat");
+                      setMaskError(null);
+                      setMaskSuccess(null);
+                    }}
+                    className="rounded-md border border-gray-700 px-2 py-1 text-xs font-semibold uppercase text-gray-300 hover:border-gray-500"
+                  >
+                    {editingMask === "backfat" ? "Editing" : "Edit"}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="relative overflow-hidden rounded-md border border-gray-800 bg-black">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={scan.image_url}
-              alt={`Scan ${scan.capture_id}`}
-              className="w-full max-h-[420px] object-contain"
-            />
-            {showMask && scan.mask_url && (
-              // eslint-disable-next-line @next/next/no-img-element
+          {editingMask && gradeAllowed && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-gray-800 bg-gray-950/70 p-3">
+              <span className="text-xs font-semibold uppercase text-gray-400">
+                Editing {editingMask === "ribeye" ? "Ribeye" : "Backfat"} mask
+              </span>
+              <label className="flex items-center gap-2 text-xs font-semibold uppercase text-gray-400">
+                Brush
+                <input
+                  type="range"
+                  min={4}
+                  max={80}
+                  step={2}
+                  value={brushSize}
+                  onChange={(event) => setBrushSize(Number(event.target.value))}
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBrushMode("add")}
+                  className={`rounded-md px-2 py-1 text-xs font-semibold uppercase ${
+                    brushMode === "add"
+                      ? "bg-emerald-500 text-black"
+                      : "border border-gray-700 text-gray-300"
+                  }`}
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBrushMode("erase")}
+                  className={`rounded-md px-2 py-1 text-xs font-semibold uppercase ${
+                    brushMode === "erase"
+                      ? "bg-rose-500 text-black"
+                      : "border border-gray-700 text-gray-300"
+                  }`}
+                >
+                  Erase
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleMaskSave}
+                  disabled={maskSaving}
+                  className="rounded-md bg-indigo-600 px-3 py-1 text-xs font-semibold uppercase text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {maskSaving ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMaskCancel}
+                  className="rounded-md border border-gray-700 px-3 py-1 text-xs font-semibold uppercase text-gray-300 hover:border-gray-500"
+                >
+                  Cancel
+                </button>
+              </div>
+              {maskError && <span className="text-xs text-rose-300">{maskError}</span>}
+              {maskSuccess && (
+                <span className="text-xs text-emerald-300">{maskSuccess}</span>
+              )}
+            </div>
+          )}
+          <div className="relative overflow-hidden rounded-md border border-gray-800 bg-black flex justify-center">
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={scan.mask_url}
-                alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain mix-blend-screen opacity-60"
-                style={{
-                  filter: "sepia(1) saturate(8) hue-rotate(80deg)",
-                }}
+                ref={imageRef}
+                src={scan.image_url}
+                alt={`Scan ${scan.capture_id}`}
+                className="block max-h-[420px] max-w-full"
+                onLoad={handleImageLoad}
               />
-            )}
-            {showBackfatMask && scan.backfat_line_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={scan.backfat_line_url}
-                alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain mix-blend-screen opacity-60"
-                style={{
-                  filter: "sepia(1) saturate(8) hue-rotate(80deg)",
-                }}
-              />
-            )}
+              {showMask && scan.mask_url && editingMask !== "ribeye" && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={scan.mask_url}
+                  alt=""
+                  className="pointer-events-none absolute inset-0 h-full w-full mix-blend-screen opacity-60"
+                  style={{
+                    filter: "sepia(1) saturate(8) hue-rotate(80deg)",
+                  }}
+                />
+              )}
+              {showBackfatMask && scan.backfat_line_url && editingMask !== "backfat" && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={scan.backfat_line_url}
+                  alt=""
+                  className="pointer-events-none absolute inset-0 h-full w-full mix-blend-screen opacity-60"
+                  style={{
+                    filter: "sepia(1) saturate(8) hue-rotate(80deg)",
+                  }}
+                />
+              )}
+              {editingMask && (
+                <canvas
+                  ref={maskCanvasRef}
+                  className="absolute inset-0 h-full w-full cursor-crosshair mix-blend-screen opacity-60"
+                  style={{ filter: "sepia(1) saturate(8) hue-rotate(80deg)", touchAction: "none" }}
+                  onPointerDown={handleMaskPointerDown}
+                  onPointerMove={handleMaskPointerMove}
+                  onPointerUp={handleMaskPointerUp}
+                  onPointerLeave={handleMaskPointerUp}
+                />
+              )}
+            </div>
           </div>
           <p className="text-xs text-gray-500">
             Served via temporary signed URL. Refresh the page to generate a new one

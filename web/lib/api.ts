@@ -267,6 +267,7 @@ export type ScanDetail = Scan & {
 };
 
 export type ScanQuality = "good" | "medium" | "bad";
+export type MaskType = "ribeye" | "backfat";
 
 export type PaginatedScans = {
   scans: Scan[];
@@ -426,6 +427,51 @@ export async function deleteScan(token: string, scanId: string) {
     throw new Error(txt || "Failed to delete scan");
   }
   return res.json() as Promise<{ message: string; id: string }>;
+}
+
+export async function getScanMask(
+  token: string,
+  scanId: string,
+  maskType: MaskType
+) {
+  const res = await fetch(`${API_BASE}/scans/${scanId}/mask?mask_type=${maskType}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to load mask");
+  }
+  return res.blob();
+}
+
+export async function updateScanMask(
+  token: string,
+  scanId: string,
+  maskType: MaskType,
+  blob: Blob
+) {
+  const url = `${API_BASE}/scans/${scanId}/mask?mask_type=${maskType}`;
+  const form = new FormData();
+  form.append(
+    "file",
+    blob,
+    maskType === "ribeye" ? "mask.png" : "backfat_line.png"
+  );
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || "Failed to update mask");
+  }
+  return (await res.json()) as ScanDetail;
 }
 
 // Admin API

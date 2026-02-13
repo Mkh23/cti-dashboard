@@ -97,3 +97,17 @@ def delete_prefix_objects(bucket: str, prefix: str) -> Optional[int]:
     except Exception as exc:  # pragma: no cover - defensive safeguard
         logger.error("Unexpected error deleting S3 prefix %s/%s: %s", bucket, prefix, exc)
         return None
+
+
+def put_object(bucket: str, key: str, body: bytes, content_type: str = "image/png") -> bool:
+    """Upload an object to S3, returning True on success."""
+    try:
+        s3 = get_s3_client()
+        s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=content_type)
+        return True
+    except ClientError as exc:
+        logger.warning("Failed to upload S3 object %s/%s: %s", bucket, key, exc)
+        return False
+    except Exception as exc:  # pragma: no cover - defensive safeguard
+        logger.error("Unexpected error uploading S3 object %s/%s: %s", bucket, key, exc)
+        return False

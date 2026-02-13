@@ -143,6 +143,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Herd metadata endpoints/UI have been renamed to `/groups` (formerly cattle) while preserving the same create/view/edit flows
 - Admin user listing now returns full names alongside emails to support dashboard editing
 - Scan browsing, detail views, aggregate stats, and grading triggers (`/scans`, `/scans/{scan_id}/grade`) with presigned URLs via `app/s3_utils.py`
+- Scan mask streaming endpoint (`/scans/{scan_id}/mask`) returns ribeye/backfat PNGs for the editor (missing masks fall back to blank edits)
 - HMAC-protected ingest webhook validating `meta_v1.json`, persisting scans/assets/events/logs, and storing the full `meta_json` blob for later edits
 - Incoming metadata now captures grading labels, IMF, backfat thickness, animal weight, `Animal_RFID`, and `group_ID`, automatically creating group/animal records, reconciling farm ownership via geofences, and flagging unassigned scans for admin reassignment
 - Ingest applies safe defaults for missing meta fields and ignores legacy/unknown keys (e.g., old cattle_ID) so AWS payload hiccups don't block scan storage
@@ -152,7 +153,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Group updates now propagate farm + birth date to animals/scans; animal/groups forms toggle between register/edit states based on context
 - Fixed Animals form toggle (show/hide) so it initializes correctly when editing
 - Added Geofence builder stub page per farm; store your province .gpkg/.geojson files outside git (e.g., `resources/geofence/`) and wire a backend endpoint to feed the map
-- Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes mask + backfat mask overlay toggles that highlight segmentation in green
+- Scan viewer exposes ribeye area plus clarity/usability/label annotations, supports label-based filters, and includes ribeye + backfat mask overlay toggles plus an in-app mask editor for updating either mask
 - Scan timestamps now render in each farm's local timezone (defaulting to America/Edmonton when no centroid is set) so captured-at times from `meta.json` match the ranch clock
 - Admin announcements API lets privileged users publish rich-text notices (with landing-page visibility) and powers the new home-page broadcast strip
 - Admin-only scan sync endpoint crawls the AWS bucket to backfill missing captures or mirror deletions using the exact same ingest pipeline as the webhook
@@ -176,7 +177,7 @@ If you need the helper to bring up the dockerized Postgres as well, export `RUN_
 - Shared group manager lets permitted roles define herds with born dates and external IDs for scan linkage
 - Manage Database panel lets admins launch AWS sync jobs (add-only or add+remove) and review ingestion summaries in real time
 - User administration page doubles as a pending-approval queue, so admins can review new registration requests, select roles, and approve or reject them in-app
-- Scan listing supports label filters/badges, and scan detail pages now include mask + backfat mask overlay toggles plus editable clarity/usability/label annotations
+- Scan listing supports label filters/badges, and scan detail pages now include ribeye/backfat mask overlays, a brush-based mask editor that preloads existing masks (or starts blank), and editable clarity/usability/label annotations
 - Global dashboard navigation now adapts per role (admins only see admin tools; technicians/farmers only see their panels) while still offering Home/Scans shortcuts, sign-out, and branded routing, and the landing page keeps announcements and CTAs front-and-center for quick orientation
 - Login view offers inline shortcuts back to the marketing home or the public registration form so users can recover from mistyped URLs quickly
 

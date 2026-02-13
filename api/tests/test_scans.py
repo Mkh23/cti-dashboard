@@ -1,5 +1,7 @@
 """Test scans management endpoints."""
+import io
 import pytest
+from unittest.mock import patch, Mock
 from datetime import datetime
 from app.models import (
     User,
@@ -679,3 +681,98 @@ def test_scan_detail_includes_farm_info(test_db, client, admin_token, test_devic
     data = response.json()
     assert "farm_name" in data
     assert data["farm_name"] == "Detail Test Farm"
+
+
+def test_update_scan_mask_creates_asset(test_db, client, admin_token, test_device, technician_user):
+    """Uploading a mask creates or updates the related asset and metadata."""
+    db = test_db()
+
+    image_asset = Asset(
+        bucket="test-bucket",
+        object_key="raw/SCAN-DEV-001/2025/01/01/cap_mask_edit/image.jpg",
+        sha256="img123",
+        size_bytes=1024,
+        mime_type="image/jpeg",
+    )
+    db.add(image_asset)
+    db.commit()
+    db.refresh(image_asset)
+
+    scan = Scan(
+        capture_id="cap_mask_edit",
+        ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_mask_edit/",
+        device_id=test_device,
+        operator_id=technician_user.id,
+        image_asset_id=image_asset.id,
+        status=ScanStatus.uploaded,
+    )
+    db.add(scan)
+    db.commit()
+    scan_id = scan.id
+    db.close()
+
+    with patch("app.routers.scans.put_object", return_value=True):
+        response = client.post(
+            f"/scans/{scan_id}/mask?mask_type=ribeye",
+            headers={"Authorization": f"Bearer {admin_token}"},
+            files={"file": ("mask.png", b"mask-bytes", "image/png")},
+        )
+
+    assert response.status_code == 200
+
+    db = test_db()
+    refreshed = db.get(Scan, scan_id)
+    assert refreshed is not None
+    assert refreshed.mask_asset_id is not None
+    assert refreshed.meta["files"]["mask_relpath"] == "mask.png"
+
+    mask_asset = db.get(Asset, refreshed.mask_asset_id)
+    assert mask_asset is not None
+    assert mask_asset.bucket == "test-bucket"
+    assert mask_asset.object_key.endswith("/mask.png")
+    db.close()
+
+
+def test_get_scan_mask_streams_asset(test_db, client, admin_token, test_device, technician_user):
+    """Fetching a scan mask streams bytes from S3."""
+    db = test_db()
+
+    mask_asset = Asset(
+        bucket="test-bucket",
+        object_key="raw/SCAN-DEV-001/2025/01/01/cap_mask_fetch/mask.png",
+        sha256="mask123",
+        size_bytes=4,
+        mime_type="image/png",
+    )
+    db.add(mask_asset)
+    db.commit()
+    db.refresh(mask_asset)
+
+    scan = Scan(
+        capture_id="cap_mask_fetch",
+        ingest_key="test-bucket/raw/SCAN-DEV-001/2025/01/01/cap_mask_fetch/",
+        device_id=test_device,
+        operator_id=technician_user.id,
+        mask_asset_id=mask_asset.id,
+        status=ScanStatus.uploaded,
+    )
+    db.add(scan)
+    db.commit()
+    scan_id = scan.id
+    db.close()
+
+    mock_s3 = Mock()
+    mock_s3.get_object.return_value = {
+        "Body": io.BytesIO(b"mask"),
+        "ContentType": "image/png",
+    }
+
+    with patch("app.routers.scans.get_s3_client", return_value=mock_s3):
+        response = client.get(
+            f"/scans/{scan_id}/mask?mask_type=ribeye",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+    assert response.status_code == 200
+    assert response.content == b"mask"
+    assert response.headers["content-type"].startswith("image/png")
